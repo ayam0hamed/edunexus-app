@@ -17,17 +17,32 @@ class VideoCallCubit extends Cubit<VideoCallState> {
     required this.sfuService,
   }) : super(const VideoCallInitial());
 
-  Future<void> createMeeting(String name, String userId, String userName) async {
+  Future<void> createMeeting(
+    String name,
+    String userId,
+    String userName,
+  ) async {
     emit(const VideoCallLoading());
     try {
-      final meeting = await repository.createMeeting(name, userId: userId, userName: userName);
+      final meeting = await repository.createMeeting(
+        name,
+        userId: userId,
+        userName: userName,
+      );
+      debugPrint(
+        '[Meeting] Created meeting: meetingId=${meeting.id}, name=$name',
+      );
       await joinMeeting(meeting.id, userName, isInstructor: true);
     } catch (e) {
       emit(VideoCallError('Failed to create meeting: $e'));
     }
   }
 
-  Future<void> joinMeeting(String meetingId, String userName, {bool isInstructor = false}) async {
+  Future<void> joinMeeting(
+    String meetingId,
+    String userName, {
+    bool isInstructor = false,
+  }) async {
     emit(const VideoCallLoading());
     try {
       // Debug: confirm the exact backend meeting ID being used (Issue 7)
@@ -36,11 +51,33 @@ class VideoCallCubit extends Cubit<VideoCallState> {
       await hubService.connect();
 
       final connectionId = hubService.connectionId ?? '';
-      
-      // 2. Perform REST Join API
-      final joinResult = await repository.joinMeeting(meetingId, userName, connectionId);
-      final participantId = joinResult['participantId']?.toString() ?? const Uuid().v4();
 
+      // 2. Perform REST Join API
+      final joinResult = await repository.joinMeeting(
+        meetingId,
+        userName,
+        connectionId,
+      );
+
+      final participants = (joinResult['participants'] as List?) ?? [];
+
+      String participantId = const Uuid().v4();
+
+      for (final p in participants) {
+        final participant = p as Map<String, dynamic>;
+
+        if (participant['name'] == userName) {
+          participantId = participant['id'].toString();
+          break;
+        }
+      }
+
+      debugPrint('========================');
+      debugPrint('Join Response');
+      debugPrint(joinResult.toString());
+      debugPrint('ParticipantId = $participantId');
+      debugPrint('MeetingId = $meetingId');
+      debugPrint('========================');
       // 3. Invoke Hub Join method
       await hubService.joinMeeting(meetingId, userName);
 
@@ -52,15 +89,20 @@ class VideoCallCubit extends Cubit<VideoCallState> {
         final sfuResponse = await repository.sfuJoin(meetingId, participantId);
         await sfuService.initializeSfu(sfuResponse, participantId, meetingId);
       } catch (e) {
-        debugPrint('VideoCallCubit: SFU initialization failed, proceeding with fallback media: $e');
+        debugPrint(
+          'VideoCallCubit: SFU initialization failed, proceeding with fallback media: $e',
+        );
       }
+      debugPrint("Join Result = $joinResult");
 
-      emit(VideoCallJoined(
-        meetingId: meetingId,
-        participantId: participantId,
-        userName: userName,
-        isInstructor: isInstructor,
-      ));
+      emit(
+        VideoCallJoined(
+          meetingId: meetingId,
+          participantId: participantId,
+          userName: userName,
+          isInstructor: isInstructor,
+        ),
+      );
     } catch (e) {
       emit(VideoCallError('Failed to join meeting: $e'));
     }
@@ -72,7 +114,11 @@ class VideoCallCubit extends Cubit<VideoCallState> {
       emit(const VideoCallLoading());
       try {
         final connectionId = hubService.connectionId ?? '';
-        await repository.leaveMeeting(currentState.meetingId, currentState.participantId, connectionId);
+        await repository.leaveMeeting(
+          currentState.meetingId,
+          currentState.participantId,
+          connectionId,
+        );
         await hubService.leaveMeeting(currentState.meetingId);
       } catch (e) {
         debugPrint('VideoCallCubit: Error while leaving call: $e');

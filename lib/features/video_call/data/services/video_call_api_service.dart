@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:grad_project/core/network/dio_client.dart';
 import 'package:grad_project/core/error/exceptions.dart';
 import 'package:grad_project/features/meetings/data/models/meeting_model.dart';
@@ -14,7 +15,11 @@ class VideoCallApiService {
 
   VideoCallApiService(this.dioClient);
 
-  Future<MeetingModel> createMeeting(String meetingName, {String userId = '', String userName = ''}) async {
+  Future<MeetingModel> createMeeting(
+    String meetingName, {
+    String userId = '',
+    String userName = '',
+  }) async {
     try {
       final response = await dioClient.dio.post(
         VideoCallConfig.meetingsCreate,
@@ -26,40 +31,53 @@ class VideoCallApiService {
         },
       );
       if (response.data != null) {
-        return MeetingModel.fromJson(response.data as Map<String, dynamic>);
+        final data = response.data as Map<String, dynamic>;
+
+        final meetingJson = data['meeting'] as Map<String, dynamic>? ?? data;
+
+        return MeetingModel.fromJson(meetingJson);
       }
       throw const ServerException('Empty response received');
     } on DioException catch (e) {
-      throw ServerException(e.response?.data?.toString() ?? e.message ?? 'Failed to create meeting');
+      throw ServerException(
+        e.response?.data?.toString() ?? e.message ?? 'Failed to create meeting',
+      );
     }
   }
 
-  Future<Map<String, dynamic>> joinMeeting(String meetingId, String userName, String connectionId) async {
+  Future<Map<String, dynamic>> joinMeeting(
+    String meetingId,
+    String userName,
+    String connectionId,
+  ) async {
     try {
       final response = await dioClient.dio.post(
         VideoCallConfig.meetingsJoin(meetingId),
-        data: {
-          'userName': userName,
-          'connectionId': connectionId,
-        },
+        data: {'userName': userName, 'connectionId': connectionId},
       );
+      debugPrint('Join meeting response: ${response.data}');
       return (response.data ?? <String, dynamic>{}) as Map<String, dynamic>;
     } on DioException catch (e) {
-      throw ServerException(e.response?.data?.toString() ?? e.message ?? 'Failed to join meeting');
+      throw ServerException(
+        e.response?.data?.toString() ?? e.message ?? 'Failed to join meeting',
+      );
     }
   }
 
-  Future<void> leaveMeeting(String meetingId, String participantId, String connectionId) async {
+  Future<void> leaveMeeting(
+    String meetingId,
+    String participantId,
+    String connectionId,
+  ) async {
     try {
       await dioClient.dio.post(
         VideoCallConfig.meetingsLeave(meetingId),
-        data: {
-          'participantId': participantId,
-          'connectionId': connectionId,
-        },
+        data: {'participantId': participantId, 'connectionId': connectionId},
       );
     } on DioException catch (e) {
-      throw ServerException(e.response?.data?.toString() ?? e.message ?? 'Failed to leave meeting');
+      throw ServerException(
+        e.response?.data?.toString() ?? e.message ?? 'Failed to leave meeting',
+      );
     }
   }
 
@@ -68,20 +86,33 @@ class VideoCallApiService {
       final response = await dioClient.dio.get(VideoCallConfig.meetingsActive);
       final data = response.data;
       if (data is List) {
-        return data.whereType<Map<String, dynamic>>().map(MeetingModel.fromJson).toList();
+        return data
+            .whereType<Map<String, dynamic>>()
+            .map(MeetingModel.fromJson)
+            .toList();
       }
       return const [];
     } on DioException catch (e) {
-      throw ServerException(e.response?.data?.toString() ?? e.message ?? 'Failed to load active meetings');
+      throw ServerException(
+        e.response?.data?.toString() ??
+            e.message ??
+            'Failed to load active meetings',
+      );
     }
   }
 
   Future<MeetingModel> getMeeting(String meetingId) async {
     try {
-      final response = await dioClient.dio.get(VideoCallConfig.meetingsById(meetingId));
+      final response = await dioClient.dio.get(
+        VideoCallConfig.meetingsById(meetingId),
+      );
       return MeetingModel.fromJson(response.data as Map<String, dynamic>);
     } on DioException catch (e) {
-      throw ServerException(e.response?.data?.toString() ?? e.message ?? 'Failed to load meeting details');
+      throw ServerException(
+        e.response?.data?.toString() ??
+            e.message ??
+            'Failed to load meeting details',
+      );
     }
   }
 
@@ -89,20 +120,33 @@ class VideoCallApiService {
     try {
       await dioClient.dio.post(VideoCallConfig.meetingsEnd(meetingId));
     } on DioException catch (e) {
-      throw ServerException(e.response?.data?.toString() ?? e.message ?? 'Failed to end meeting');
+      throw ServerException(
+        e.response?.data?.toString() ?? e.message ?? 'Failed to end meeting',
+      );
     }
   }
 
-  Future<List<ParticipantModel>> getMeetingParticipants(String meetingId) async {
+  Future<List<ParticipantModel>> getMeetingParticipants(
+    String meetingId,
+  ) async {
     try {
-      final response = await dioClient.dio.get(VideoCallConfig.meetingsParticipants(meetingId));
+      final response = await dioClient.dio.get(
+        VideoCallConfig.meetingsParticipants(meetingId),
+      );
       final data = response.data;
       if (data is List) {
-        return data.whereType<Map<String, dynamic>>().map(ParticipantModel.fromJson).toList();
+        return data
+            .whereType<Map<String, dynamic>>()
+            .map(ParticipantModel.fromJson)
+            .toList();
       }
       return const [];
     } on DioException catch (e) {
-      throw ServerException(e.response?.data?.toString() ?? e.message ?? 'Failed to load meeting participants');
+      throw ServerException(
+        e.response?.data?.toString() ??
+            e.message ??
+            'Failed to load meeting participants',
+      );
     }
   }
 
@@ -110,13 +154,14 @@ class VideoCallApiService {
     try {
       await dioClient.dio.post(
         VideoCallConfig.toggleAudio,
-        data: {
-          'connectionId': connectionId,
-          'enabled': enabled,
-        },
+        data: {'connectionId': connectionId, 'enabled': enabled},
       );
     } on DioException catch (e) {
-      throw ServerException(e.response?.data?.toString() ?? e.message ?? 'Failed to toggle audio status');
+      throw ServerException(
+        e.response?.data?.toString() ??
+            e.message ??
+            'Failed to toggle audio status',
+      );
     }
   }
 
@@ -124,13 +169,14 @@ class VideoCallApiService {
     try {
       await dioClient.dio.post(
         VideoCallConfig.toggleVideo,
-        data: {
-          'connectionId': connectionId,
-          'enabled': enabled,
-        },
+        data: {'connectionId': connectionId, 'enabled': enabled},
       );
     } on DioException catch (e) {
-      throw ServerException(e.response?.data?.toString() ?? e.message ?? 'Failed to toggle video status');
+      throw ServerException(
+        e.response?.data?.toString() ??
+            e.message ??
+            'Failed to toggle video status',
+      );
     }
   }
 
@@ -139,26 +185,38 @@ class VideoCallApiService {
       final response = await dioClient.dio.post(VideoCallConfig.iceConfig);
       return IceConfigResponse.fromJson(response.data as Map<String, dynamic>);
     } on DioException catch (e) {
-      throw ServerException(e.response?.data?.toString() ?? e.message ?? 'Failed to get WebRTC ICE configuration');
+      throw ServerException(
+        e.response?.data?.toString() ??
+            e.message ??
+            'Failed to get WebRTC ICE configuration',
+      );
     }
   }
 
   // ── SFU Endpoints ──────────────────────────────────────────────────────
-  Future<SfuJoinResponse> sfuJoin(String meetingId, String participantId) async {
+  Future<SfuJoinResponse> sfuJoin(
+    String meetingId,
+    String participantId,
+  ) async {
     try {
       final response = await dioClient.dio.post(
         VideoCallConfig.sfuJoin(meetingId),
-        data: {
-          'participantId': participantId,
-        },
+        data: {'participantId': participantId},
       );
       return SfuJoinResponse.fromJson(response.data as Map<String, dynamic>);
     } on DioException catch (e) {
-      throw ServerException(e.response?.data?.toString() ?? e.message ?? 'Failed to join SFU room');
+      throw ServerException(
+        e.response?.data?.toString() ?? e.message ?? 'Failed to join SFU room',
+      );
     }
   }
 
-  Future<void> sfuConnectSend(String meetingId, String participantId, String transportId, Map<String, dynamic> dtlsParameters) async {
+  Future<void> sfuConnectSend(
+    String meetingId,
+    String participantId,
+    String transportId,
+    Map<String, dynamic> dtlsParameters,
+  ) async {
     try {
       await dioClient.dio.post(
         VideoCallConfig.sfuConnectSend,
@@ -170,11 +228,21 @@ class VideoCallApiService {
         },
       );
     } on DioException catch (e) {
-      throw ServerException(e.response?.data?.toString() ?? e.message ?? 'Failed to connect send transport');
+      throw ServerException(
+        e.response?.data?.toString() ??
+            e.message ??
+            'Failed to connect send transport',
+      );
     }
   }
 
-  Future<String> sfuProduce(String meetingId, String participantId, String kind, Map<String, dynamic> rtpParameters, Map<String, dynamic> appData) async {
+  Future<String> sfuProduce(
+    String meetingId,
+    String participantId,
+    String kind,
+    Map<String, dynamic> rtpParameters,
+    Map<String, dynamic> appData,
+  ) async {
     try {
       final response = await dioClient.dio.post(
         VideoCallConfig.sfuProduce,
@@ -188,11 +256,20 @@ class VideoCallApiService {
       );
       return response.data['producerId']?.toString() ?? '';
     } on DioException catch (e) {
-      throw ServerException(e.response?.data?.toString() ?? e.message ?? 'Failed to produce tracks on SFU');
+      throw ServerException(
+        e.response?.data?.toString() ??
+            e.message ??
+            'Failed to produce tracks on SFU',
+      );
     }
   }
 
-  Future<Map<String, dynamic>> sfuConsume(String meetingId, String participantId, String producerId, Map<String, dynamic> rtpCapabilities) async {
+  Future<Map<String, dynamic>> sfuConsume(
+    String meetingId,
+    String participantId,
+    String producerId,
+    Map<String, dynamic> rtpCapabilities,
+  ) async {
     try {
       final response = await dioClient.dio.post(
         VideoCallConfig.sfuConsume(meetingId),
@@ -204,46 +281,69 @@ class VideoCallApiService {
       );
       return (response.data ?? <String, dynamic>{}) as Map<String, dynamic>;
     } on DioException catch (e) {
-      throw ServerException(e.response?.data?.toString() ?? e.message ?? 'Failed to consume tracks on SFU');
+      throw ServerException(
+        e.response?.data?.toString() ??
+            e.message ??
+            'Failed to consume tracks on SFU',
+      );
     }
   }
 
   // ── Chat Endpoints ──────────────────────────────────────────────────────
   Future<List<ChatMessageModel>> getChatHistory(String meetingId) async {
     try {
-      final response = await dioClient.dio.get(VideoCallConfig.chatHistory(meetingId));
+      final response = await dioClient.dio.get(
+        VideoCallConfig.chatHistory(meetingId),
+      );
       final data = response.data;
       if (data is List) {
-        return data.whereType<Map<String, dynamic>>().map(ChatMessageModel.fromJson).toList();
+        return data
+            .whereType<Map<String, dynamic>>()
+            .map(ChatMessageModel.fromJson)
+            .toList();
       }
       return const [];
     } on DioException catch (e) {
-      throw ServerException(e.response?.data?.toString() ?? e.message ?? 'Failed to load chat history');
+      throw ServerException(
+        e.response?.data?.toString() ??
+            e.message ??
+            'Failed to load chat history',
+      );
     }
   }
 
   // ── Quiz Endpoints ──────────────────────────────────────────────────────
-  Future<String> createQuizSession(String meetingId, List<Map<String, dynamic>> questions) async {
+  Future<String> createQuizSession(
+    String meetingId,
+    List<Map<String, dynamic>> questions,
+  ) async {
     try {
       final response = await dioClient.dio.post(
         VideoCallConfig.quizCreate,
-        data: {
-          'meetingId': meetingId,
-          'questions': questions,
-        },
+        data: {'meetingId': meetingId, 'questions': questions},
       );
-      return response.data['sessionId']?.toString() ?? response.data['id']?.toString() ?? '';
+      return response.data['sessionId']?.toString() ??
+          response.data['id']?.toString() ??
+          '';
     } on DioException catch (e) {
-      throw ServerException(e.response?.data?.toString() ?? e.message ?? 'Failed to create quiz session');
+      throw ServerException(
+        e.response?.data?.toString() ??
+            e.message ??
+            'Failed to create quiz session',
+      );
     }
   }
 
   Future<QuizSessionModel> startQuiz(String sessionId) async {
     try {
-      final response = await dioClient.dio.post(VideoCallConfig.quizStart(sessionId));
+      final response = await dioClient.dio.post(
+        VideoCallConfig.quizStart(sessionId),
+      );
       return QuizSessionModel.fromJson(response.data as Map<String, dynamic>);
     } on DioException catch (e) {
-      throw ServerException(e.response?.data?.toString() ?? e.message ?? 'Failed to start quiz');
+      throw ServerException(
+        e.response?.data?.toString() ?? e.message ?? 'Failed to start quiz',
+      );
     }
   }
 
@@ -251,31 +351,43 @@ class VideoCallApiService {
     try {
       await dioClient.dio.post(VideoCallConfig.quizStop(sessionId));
     } on DioException catch (e) {
-      throw ServerException(e.response?.data?.toString() ?? e.message ?? 'Failed to stop quiz');
+      throw ServerException(
+        e.response?.data?.toString() ?? e.message ?? 'Failed to stop quiz',
+      );
     }
   }
 
-  Future<bool> answerQuizQuestion(String questionId, String selectedOption) async {
+  Future<bool> answerQuizQuestion(
+    String questionId,
+    String selectedOption,
+  ) async {
     try {
       final response = await dioClient.dio.post(
         VideoCallConfig.quizAnswer,
-        data: {
-          'questionId': questionId,
-          'selectedOption': selectedOption,
-        },
+        data: {'questionId': questionId, 'selectedOption': selectedOption},
       );
       return response.data['isCorrect'] as bool? ?? false;
     } on DioException catch (e) {
-      throw ServerException(e.response?.data?.toString() ?? e.message ?? 'Failed to submit quiz answer');
+      throw ServerException(
+        e.response?.data?.toString() ??
+            e.message ??
+            'Failed to submit quiz answer',
+      );
     }
   }
 
   Future<Map<String, dynamic>> getQuizResults(String sessionId) async {
     try {
-      final response = await dioClient.dio.get(VideoCallConfig.quizResults(sessionId));
+      final response = await dioClient.dio.get(
+        VideoCallConfig.quizResults(sessionId),
+      );
       return (response.data ?? <String, dynamic>{}) as Map<String, dynamic>;
     } on DioException catch (e) {
-      throw ServerException(e.response?.data?.toString() ?? e.message ?? 'Failed to load quiz results');
+      throw ServerException(
+        e.response?.data?.toString() ??
+            e.message ??
+            'Failed to load quiz results',
+      );
     }
   }
 }

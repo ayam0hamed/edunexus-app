@@ -7,6 +7,9 @@ import 'package:grad_project/features/student_home/data/models/meeting_model.dar
 import 'package:grad_project/features/student_home/presentation/bloc/student_dashboard_bloc.dart';
 import 'package:grad_project/features/student_home/presentation/bloc/student_dashboard_event.dart';
 import 'package:grad_project/features/student_home/presentation/bloc/student_dashboard_state.dart';
+import 'package:grad_project/features/video_call/presentation/bloc/video_call/video_call_cubit.dart';
+import 'package:grad_project/features/video_call/presentation/bloc/video_call/video_call_state.dart';
+import 'package:grad_project/features/video_call/presentation/screens/meeting_room_screen.dart';
 
 class StudentScreen extends StatefulWidget {
   const StudentScreen({super.key});
@@ -16,6 +19,14 @@ class StudentScreen extends StatefulWidget {
 }
 
 class _StudentScreenState extends State<StudentScreen> {
+  final TextEditingController meetingIdController = TextEditingController();
+
+  @override
+  void dispose() {
+    meetingIdController.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -115,10 +126,9 @@ class _StudentScreenState extends State<StudentScreen> {
                   : 'Student';
               final String welcomeSubText =
                   dashboard.profile.welcomeText ??
-                  'Let’s continue your learning journey and your goals today';
+                  "Let's continue your learning journey and your goals today";
 
               final coursesCount = dashboard.courses.length;
-
 
               return RefreshIndicator(
                 color: const Color(0xFF163D69),
@@ -245,8 +255,7 @@ class _StudentScreenState extends State<StudentScreen> {
                                   icon: Icons.videocam_outlined,
                                   title: 'Meeting',
                                   value: '${dashboard.meetingsCount}',
-                                  subtitle:
-                                      '${dashboard.meetingsCount} active',
+                                  subtitle: '${dashboard.meetingsCount} active',
                                   bgColor: const Color(0xffD5DDE6),
                                   iconColor: const Color(0xFF163D69),
                                 ),
@@ -310,7 +319,7 @@ class _StudentScreenState extends State<StudentScreen> {
 
                       // Upcoming Meetings Section
                       const Text(
-                        'Upcoming Meetings',
+                        'Join Meetings',
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
@@ -318,46 +327,41 @@ class _StudentScreenState extends State<StudentScreen> {
                         ),
                       ),
                       const SizedBox(height: 12),
-                      dashboard.meetings.isEmpty
-                          ? Container(
-                              width: double.infinity,
-                              padding: const EdgeInsets.symmetric(vertical: 32),
-                              alignment: Alignment.center,
-                              decoration: BoxDecoration(
-                                color: const Color(0xffECECEC).withOpacity(0.4),
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: Colors.grey.shade200),
-                              ),
-                              child: const Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(
-                                    Icons.video_call_outlined,
-                                    color: Colors.grey,
-                                    size: 36,
+                      TextField(
+                        controller: meetingIdController,
+                        decoration: const InputDecoration(
+                          hintText: "Enter Meeting ID",
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      ElevatedButton(
+                        onPressed: () async {
+                          if (meetingIdController.text.trim().isEmpty) return;
+
+                          final cubit = GetIt.I<VideoCallCubit>();
+
+                          await cubit.joinMeeting(
+                            meetingIdController.text.trim(),
+                            dashboard.profile.fullName,
+                          );
+
+                          if (cubit.state is VideoCallJoined) {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => BlocProvider.value(
+                                  value: cubit,
+                                  child: MeetingRoomScreen(
+                                    meetingId: meetingIdController.text.trim(),
                                   ),
-                                  SizedBox(height: 8),
-                                  Text(
-                                    'No upcoming meetings',
-                                    style: TextStyle(
-                                      color: Colors.grey,
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                ],
+                                ),
                               ),
-                            )
-                          : ListView.builder(
-                              shrinkWrap: true,
-                              physics: const NeverScrollableScrollPhysics(),
-                              itemCount: dashboard.meetings.length,
-                              itemBuilder: (context, index) {
-                                return _buildMeetingCard(
-                                  dashboard.meetings[index],
-                                );
-                              },
-                            ),
+                            );
+                          }
+                        },
+                        child: const Text("Join Meeting"),
+                      ),
                     ],
                   ),
                 ),
@@ -455,11 +459,7 @@ class _StudentScreenState extends State<StudentScreen> {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Icon(
-                Icons.school,
-                color: Color(0xFF163D69),
-                size: 18,
-              ),
+              const Icon(Icons.school, color: Color(0xFF163D69), size: 18),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
@@ -488,218 +488,6 @@ class _StudentScreenState extends State<StudentScreen> {
                   fontSize: 9,
                   fontWeight: FontWeight.w500,
                   color: Colors.black.withOpacity(0.5),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildMeetingCard(MeetingModel meeting) {
-    return Container(
-      width: double.infinity,
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade200),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.02),
-            blurRadius: 6,
-            offset: const Offset(0, 3),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Row 1: Meeting Icon & Title & Description
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: const BoxDecoration(
-                  color: Color(0xffDAF3FF),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.videocam_rounded,
-                  color: Color(0xFF163D69),
-                  size: 20,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      meeting.title,
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      meeting.description,
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: Colors.black.withOpacity(0.6),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          const Divider(height: 1),
-          const SizedBox(height: 12),
-          // Row 2: Course Title & Calendar Date
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                children: [
-                  const Icon(Icons.circle, color: Color(0xFF163D69), size: 8),
-                  const SizedBox(width: 6),
-                  Text(
-                    meeting.courseName,
-                    style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: Color(0xFF163D69),
-                    ),
-                  ),
-                ],
-              ),
-              Row(
-                children: [
-                  Icon(
-                    Icons.calendar_today_outlined,
-                    color: Colors.black.withOpacity(0.4),
-                    size: 14,
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    meeting.date,
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: Colors.black.withOpacity(0.6),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          // Row 3: Time & Slots
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                children: [
-                  Icon(
-                    Icons.access_time,
-                    color: Colors.black.withOpacity(0.4),
-                    size: 14,
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    '${meeting.time} (${meeting.duration})',
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: Colors.black.withOpacity(0.6),
-                    ),
-                  ),
-                ],
-              ),
-              Row(
-                children: [
-                  Icon(
-                    Icons.people_outline,
-                    color: Colors.black.withOpacity(0.4),
-                    size: 14,
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    meeting.slotsInfo,
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: Colors.black.withOpacity(0.6),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          // Row 4: Chip & Join Button
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 6,
-                ),
-                decoration: BoxDecoration(
-                  color: const Color(0xffDAF3FF),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(
-                      Icons.menu_book_outlined,
-                      color: Color(0xFF163D69),
-                      size: 12,
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      meeting.type,
-                      style: const TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xFF163D69),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              ElevatedButton.icon(
-                onPressed: () {
-                  // Join action
-                },
-                icon: const Icon(
-                  Icons.videocam_outlined,
-                  color: Colors.white,
-                  size: 16,
-                ),
-                label: const Text(
-                  'Join Now',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFE56C00),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 8,
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
                 ),
               ),
             ],
