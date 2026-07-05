@@ -3,6 +3,8 @@ import 'package:flutter/foundation.dart';
 import 'package:grad_project/features/video_call/domain/repositories/video_call_repository.dart';
 import 'package:grad_project/features/video_call/data/services/signalr_hub_service.dart';
 import 'package:grad_project/features/video_call/data/services/webrtc_sfu_service.dart';
+import 'package:grad_project/features/auth/domain/repositories/auth_repository.dart';
+import 'package:jwt_decoder/jwt_decoder.dart';
 import 'video_call_state.dart';
 import 'package:uuid/uuid.dart';
 
@@ -10,11 +12,13 @@ class VideoCallCubit extends Cubit<VideoCallState> {
   final VideoCallRepository repository;
   final SignalrHubService hubService;
   final WebrtcSfuService sfuService;
+  final AuthRepository authRepository;
 
   VideoCallCubit({
     required this.repository,
     required this.hubService,
     required this.sfuService,
+    required this.authRepository,
   }) : super(const VideoCallInitial());
 
   Future<void> createMeeting(
@@ -62,13 +66,35 @@ class VideoCallCubit extends Cubit<VideoCallState> {
       final participants = (joinResult['participants'] as List?) ?? [];
 
       String participantId = const Uuid().v4();
-
-      for (final p in participants) {
-        final participant = p as Map<String, dynamic>;
-
-        if (participant['name'] == userName) {
-          participantId = participant['id'].toString();
-          break;
+      
+      final token = await authRepository.getToken();
+      if (token != null && token.isNotEmpty) {
+        try {
+          final decodedToken = JwtDecoder.decode(token);
+          if (decodedToken.containsKey('unique_name')) {
+            participantId = decodedToken['unique_name'].toString();
+            debugPrint('VideoCallCubit: Using unique_name from JWT as Participant ID: $participantId');
+          } else {
+            // fallback
+            for (final p in participants) {
+              final participant = p as Map<String, dynamic>;
+              if (participant['name'] == userName) {
+                participantId = participant['id'].toString();
+                break;
+              }
+            }
+          }
+        } catch (e) {
+          debugPrint('VideoCallCubit: Error decoding JWT: $e');
+        }
+      } else {
+        // fallback
+        for (final p in participants) {
+          final participant = p as Map<String, dynamic>;
+          if (participant['name'] == userName) {
+            participantId = participant['id'].toString();
+            break;
+          }
         }
       }
 

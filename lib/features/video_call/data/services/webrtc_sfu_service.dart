@@ -1,18 +1,23 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
+import 'package:mediasoup_client_flutter/mediasoup_client_flutter.dart';
 import 'package:grad_project/features/video_call/data/models/sfu_models.dart';
 import 'package:grad_project/features/video_call/data/services/video_call_api_service.dart';
 
 class WebrtcSfuService {
   final VideoCallApiService apiService;
 
+  Device? _mediasoupDevice;
+  Transport? _sendTransport;
+  Transport? _recvTransport;
+
+  Producer? _audioProducer;
+  Producer? _videoProducer;
+
   MediaStream? _localStream;
   final Map<String, MediaStream> _remoteStreams = {};
-  
-  // WebRTC connections (using raw PeerConnection as client-side abstraction for SFU transports)
-  RTCPeerConnection? _sendTransport;
-  RTCPeerConnection? _recvTransport;
+  final Map<String, Consumer> _consumers = {};
 
   final _remoteStreamsController = StreamController<Map<String, MediaStream>>.broadcast();
 
@@ -29,7 +34,7 @@ class WebrtcSfuService {
       'audio': true,
       'video': {
         'mandatory': {
-          'minWidth': '640', 
+          'minWidth': '640',
           'minHeight': '480',
           'minFrameRate': '30',
         },
@@ -87,92 +92,112 @@ class WebrtcSfuService {
     }
   }
 
-  // ── SFU Mediasoup Protocol Implementation ──────────────────────────────
-  /// Initializes SFU send and receive peer connections using parameters from the SFU room.
-  /// If Mediasoup Client SDK is loaded/linked, it wraps these connections. Otherwise, we
-  /// fall back to raw WebRTC peer connections using SDP exchange or standard WebRTC flow.
   Future<void> initializeSfu(SfuJoinResponse sfuJoinResponse, String participantId, String meetingId) async {
-    debugPrint('WebrtcSfuService: Initializing WebRTC/SFU PeerConnections for transport...');
-
-    final iceServers = [
-      {'urls': 'stun:stun.l.google.com:19302'}
-    ];
-
-    final Map<String, dynamic> rtcConfig = {
-      'iceServers': iceServers,
-      'sdpSemantics': 'unified-plan'
-    };
-
     try {
-      // 1. Create Send PeerConnection (WebRTC -> SFU Send Transport)
-      _sendTransport = await createPeerConnection(rtcConfig);
-      _sendTransport!.onIceCandidate = (candidate) {
-        // Send candidate to SFU if required by connection protocol
-      };
-      _sendTransport!.onConnectionState = (state) {
-        debugPrint('WebrtcSfuService: Send Connection State changed: $state');
-      };
+      _mediasoupDevice = Device();
+      final routerRtpCapabilities = RtpCapabilities.fromMap(sfuJoinResponse.rtpCapabilities);
+      await _mediasoupDevice!.load(routerRtpCapabilities: routerRtpCapabilities);
 
-      // 2. Create Recv PeerConnection (SFU -> WebRTC Receive Transport)
-      _recvTransport = await createPeerConnection(rtcConfig);
-      _recvTransport!.onIceCandidate = (candidate) {
-        // Send candidate to SFU if required
-      };
-      _recvTransport!.onConnectionState = (state) {
-        debugPrint('WebrtcSfuService: Recv Connection State changed: $state');
-      };
-      _recvTransport!.onTrack = (RTCTrackEvent event) {
-        if (event.streams.isNotEmpty) {
-          final stream = event.streams.first;
-          // AppData/Stream metadata tells us who this track belongs to
-          final participantIdFromTrack = event.track.id ?? 'remote';
-          _remoteStreams[participantIdFromTrack] = stream;
-          _remoteStreamsController.add(Map.from(_remoteStreams));
-          debugPrint('WebrtcSfuService: Received remote track for participant $participantIdFromTrack');
-        }
-      };
+      _sendTransport = _mediasoupDevice!.createSendTransportFromMap(
+        sfuJoinResponse.sendTransport.toJson(),
+        producerCallback: (Producer producer) {
+          if (producer.source == 'mic') {
+            _audioProducer = producer;
+          } else if (producer.source == 'cam') {
+            _videoProducer = producer;
+          }
+        },
+      );
 
-      // 3. Connect Send Transport and Produce Local Stream if we have one
-      if (_localStream != null && _sendTransport != null) {
-        for (var track in _localStream!.getTracks()) {
-          await _sendTransport!.addTrack(track, _localStream!);
-        }
-
-        // Call connect endpoint on SFU
-        await apiService.sfuConnectSend(
+      _sendTransport!.on('connect', (Map data) {
+        apiService.sfuConnectSend(
           meetingId,
           participantId,
-          sfuJoinResponse.sendTransport.id,
-          sfuJoinResponse.sendTransport.dtlsParameters,
-        );
+          _sendTransport!.id,
+          data['dtlsParameters'],
+        ).then((_) {
+          data['callback']();
+        }).catchError((e) {
+          data['errback'](e);
+        });
+      });
 
-        // Call produce endpoint for audio and video
+      _sendTransport!.on('produce', (Map data) {
+        apiService.sfuProduce(
+          meetingId,
+          participantId,
+          data['kind'],
+          data['rtpParameters'],
+          data['appData'],
+        ).then((producerId) {
+          data['callback'](producerId);
+        }).catchError((e) {
+          data['errback'](e);
+        });
+      });
+
+      _recvTransport = _mediasoupDevice!.createRecvTransportFromMap(
+        sfuJoinResponse.recvTransport.toJson(),
+        consumerCallback: (Consumer consumer, [dynamic accept]) async {
+          _consumers[consumer.producerId] = consumer;
+
+          final pId = consumer.appData['participantId']?.toString() ?? 'remote-${consumer.producerId}';
+          
+          MediaStream stream;
+          if (_remoteStreams.containsKey(pId)) {
+            stream = _remoteStreams[pId]!;
+            await stream.addTrack(consumer.track);
+          } else {
+            stream = await createLocalMediaStream('stream-$pId');
+            await stream.addTrack(consumer.track);
+            _remoteStreams[pId] = stream;
+          }
+          
+          _remoteStreamsController.add(Map.from(_remoteStreams));
+          
+          if (accept != null) {
+            accept();
+          }
+        },
+      );
+
+      _recvTransport!.on('connect', (Map data) {
+        apiService.sfuConnectSend(
+          meetingId,
+          participantId,
+          _recvTransport!.id,
+          data['dtlsParameters'],
+        ).then((_) {
+          data['callback']();
+        }).catchError((e) {
+          data['errback'](e);
+        });
+      });
+
+      if (_localStream != null) {
         if (_localStream!.getAudioTracks().isNotEmpty) {
-          await apiService.sfuProduce(
-            meetingId,
-            participantId,
-            'audio',
-            {}, // RTP Parameters
-            {'type': 'mic'}, // App Data
+          _sendTransport!.produce(
+            track: _localStream!.getAudioTracks().first,
+            stream: _localStream!,
+            source: 'mic',
+            appData: {'type': 'mic'},
           );
         }
         if (_localStream!.getVideoTracks().isNotEmpty) {
-          await apiService.sfuProduce(
-            meetingId,
-            participantId,
-            'video',
-            {}, // RTP Parameters
-            {'type': 'cam'}, // App Data
+          _sendTransport!.produce(
+            track: _localStream!.getVideoTracks().first,
+            stream: _localStream!,
+            source: 'cam',
+            appData: {'type': 'cam'},
           );
         }
       }
 
-      // 4. Consume existing remote producers
       for (var producer in sfuJoinResponse.existingProducers) {
         await consumeRemoteProducer(meetingId, participantId, producer.producerId);
       }
     } catch (e) {
-      debugPrint('WebrtcSfuService: Error during SFU initialization: $e');
+      debugPrint('WebrtcSfuService: Error initializing SFU: $e');
     }
   }
 
@@ -182,26 +207,31 @@ class WebrtcSfuService {
         meetingId,
         participantId,
         producerId,
-        {}, // Client RTP Capabilities
+        _mediasoupDevice!.rtpCapabilities.toMap(),
       );
 
-      debugPrint('WebrtcSfuService: Consuming remote producer $producerId: $consumerData');
-      
-      // In a raw WebRTC/SFU fallback, we use the consumer parameters (ID, RTPOptions) 
-      // to configure local receiver tracks on the receive PeerConnection.
+      _recvTransport!.consume(
+        id: consumerData['id'],
+        producerId: consumerData['producerId'],
+        peerId: consumerData['appData']?['participantId']?.toString() ?? producerId,
+        kind: consumerData['kind'] == 'audio' ? RTCRtpMediaType.RTCRtpMediaTypeAudio : RTCRtpMediaType.RTCRtpMediaTypeVideo,
+        rtpParameters: RtpParameters.fromMap(consumerData['rtpParameters']),
+        appData: Map<String, dynamic>.from(consumerData['appData'] ?? {}),
+      );
     } catch (e) {
       debugPrint('WebrtcSfuService: Failed to consume remote producer $producerId: $e');
     }
   }
 
   Future<void> closeProducer(String kind) async {
-    debugPrint('WebrtcSfuService: Closing producer of kind $kind');
     // Implement endpoint notification/cleanups if needed
   }
 
   Future<void> closeConsumer(String producerId) async {
-    debugPrint('WebrtcSfuService: Closing consumer for producer $producerId');
-    // Remove remote stream associated
+    final consumer = _consumers.remove(producerId);
+    if (consumer != null) {
+      await consumer.close();
+    }
   }
 
   Future<void> dispose() async {
@@ -213,14 +243,16 @@ class WebrtcSfuService {
     _remoteStreams.clear();
     _remoteStreamsController.add(const {});
 
-    if (_sendTransport != null) {
-      await _sendTransport!.close();
-      _sendTransport = null;
+    for (var consumer in _consumers.values) {
+      await consumer.close();
     }
-    if (_recvTransport != null) {
-      await _recvTransport!.close();
-      _recvTransport = null;
-    }
+    _consumers.clear();
+
+    _audioProducer?.close();
+    _videoProducer?.close();
+    
+    _sendTransport?.close();
+    _recvTransport?.close();
 
     debugPrint('WebrtcSfuService: All WebRTC/SFU connections disposed');
   }

@@ -148,6 +148,7 @@ Future<void> initDI() async {
       repository: sl(),
       hubService: sl(),
       sfuService: sl(),
+      authRepository: sl(),
     ),
   );
   sl.registerFactory<MediaCubit>(
