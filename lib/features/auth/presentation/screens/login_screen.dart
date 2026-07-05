@@ -351,7 +351,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
               );
             },
-            icon: const Icon(
+            icon: const FaIcon(
               FontAwesomeIcons.microsoft,
               color: Color.fromARGB(255, 13, 76, 128),
               size: 24,
