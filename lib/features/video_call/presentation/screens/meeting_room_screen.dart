@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:get_it/get_it.dart';
 import 'package:grad_project/features/video_call/data/services/signalr_hub_service.dart';
 import 'package:grad_project/features/video_call/presentation/bloc/chat/chat_cubit.dart';
@@ -170,48 +171,53 @@ class _MeetingRoomScreenState extends State<MeetingRoomScreen> {
                         builder: (context, mediaState) {
                           return BlocBuilder<ParticipantsCubit, ParticipantsState>(
                             builder: (context, pState) {
-                              final allParticipants = pState.participants;
-                              
-                              final isPortrait = MediaQuery.of(context).orientation == Orientation.portrait;
-                              final crossAxisCount = isPortrait ? 2 : 3;
+                              // ── Filter local user out of remote list ──────
+                              // The local user always renders as LocalVideoTile
+                              // at index 0. Without this filter they'd also
+                              // appear as a VideoTile (duplicate card).
+                              final remoteParticipants = pState.participants
+                                  .where((p) => p.id != callState.participantId)
+                                  .toList();
 
-                              return GridView.builder(
-                                padding: const EdgeInsets.all(12),
-                                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                                  crossAxisCount: crossAxisCount,
-                                  crossAxisSpacing: 10,
-                                  mainAxisSpacing: 10,
-                                  childAspectRatio: 1.0,
-                                ),
-                                itemCount: allParticipants.length + 1,
-                                itemBuilder: (context, index) {
-                                  // Local User Stream is first item
-                                  if (index == 0) {
-                                    if (mediaState is MediaReady) {
-                                      return LocalVideoTile(
-                                        localStream: mediaState.localStream,
-                                        isVideoEnabled: mediaState.isVideoOn,
-                                        isAudioEnabled: mediaState.isAudioOn,
-                                        name: callState.userName,
-                                      );
-                                    }
-                                    return LocalVideoTile(
-                                      isVideoEnabled: false,
-                                      isAudioEnabled: false,
-                                      name: callState.userName,
-                                    );
-                                  }
+                              // Total tiles = 1 local + N remote
+                              final totalTiles = remoteParticipants.length + 1;
 
-                                  // Remote Participant
-                                  final participant = allParticipants[index - 1];
-                                  final remoteStream = context.read<MediaCubit>().sfuService.remoteStreams[participant.id];
+                              // ── Read remote streams from state ────────────
+                              // Using sfuService.remoteStreams directly would
+                              // NOT trigger a rebuild when streams arrive.
+                              // remoteStreams is now part of MediaReady state.
+                              final remoteStreams = mediaState is MediaReady
+                                  ? mediaState.remoteStreams
+                                  : const <String, MediaStream>{};
 
-                                  return VideoTile(
-                                    participant: participant,
-                                    remoteStream: remoteStream,
-                                  );
-                                },
+                              // ── Build local tile ─────────────────────────
+                              Widget localTile = LocalVideoTile(
+                                key: const ValueKey('local'),
+                                localStream: mediaState is MediaReady
+                                    ? mediaState.localStream
+                                    : null,
+                                isVideoEnabled: mediaState is MediaReady
+                                    ? mediaState.isVideoOn
+                                    : false,
+                                isAudioEnabled: mediaState is MediaReady
+                                    ? mediaState.isAudioOn
+                                    : false,
+                                name: callState.userName,
                               );
+
+                              // ── Build remote tiles ───────────────────────
+                              List<Widget> remoteTiles = remoteParticipants
+                                  .map((p) => VideoTile(
+                                        key: ValueKey(p.id),
+                                        participant: p,
+                                        remoteStream: remoteStreams[p.id],
+                                      ))
+                                  .toList();
+
+                              final allTiles = [localTile, ...remoteTiles];
+
+                              // ── Responsive layout ────────────────────────
+                              return _buildResponsiveGrid(allTiles, totalTiles);
                             },
                           );
                         },
@@ -439,6 +445,54 @@ class _MeetingRoomScreenState extends State<MeetingRoomScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  /// Responsive video grid:
+  /// • 1 tile  → full-screen
+  /// • 2 tiles → two equal rows
+  /// • 3-4     → 2-column grid
+  /// • 5+      → 3-column adaptive grid
+  Widget _buildResponsiveGrid(List<Widget> tiles, int count) {
+    if (count == 0) return const SizedBox.shrink();
+
+    if (count == 1) {
+      return Padding(
+        padding: const EdgeInsets.all(8),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: tiles[0],
+        ),
+      );
+    }
+
+    if (count == 2) {
+      return Column(
+        children: tiles
+            .map((t) => Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.all(4),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: t,
+                    ),
+                  ),
+                ))
+            .toList(),
+      );
+    }
+
+    // 3+ participants — grid layout
+    final crossAxisCount = count <= 4 ? 2 : 3;
+    return GridView.count(
+      crossAxisCount: crossAxisCount,
+      crossAxisSpacing: 8,
+      mainAxisSpacing: 8,
+      padding: const EdgeInsets.all(8),
+      childAspectRatio: count <= 4 ? 1.0 : 0.85,
+      shrinkWrap: false,
+      physics: const NeverScrollableScrollPhysics(),
+      children: tiles,
     );
   }
 }

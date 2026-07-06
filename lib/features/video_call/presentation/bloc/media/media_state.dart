@@ -17,12 +17,15 @@ class MediaReady extends MediaState {
   final bool isAudioOn;
   final bool isVideoOn;
   final bool isScreenSharing;
+  /// Keyed by participantId — updated whenever the SFU delivers a new track.
+  final Map<String, MediaStream> remoteStreams;
 
   const MediaReady({
     required this.localStream,
     this.isAudioOn = true,
     this.isVideoOn = true,
     this.isScreenSharing = false,
+    this.remoteStreams = const {},
   });
 
   MediaReady copyWith({
@@ -30,17 +33,20 @@ class MediaReady extends MediaState {
     bool? isAudioOn,
     bool? isVideoOn,
     bool? isScreenSharing,
+    Map<String, MediaStream>? remoteStreams,
   }) {
     return MediaReady(
       localStream: localStream ?? this.localStream,
       isAudioOn: isAudioOn ?? this.isAudioOn,
       isVideoOn: isVideoOn ?? this.isVideoOn,
       isScreenSharing: isScreenSharing ?? this.isScreenSharing,
+      remoteStreams: remoteStreams ?? this.remoteStreams,
     );
   }
 
   @override
-  List<Object?> get props => [localStream, isAudioOn, isVideoOn, isScreenSharing];
+  List<Object?> get props =>
+      [localStream, isAudioOn, isVideoOn, isScreenSharing, remoteStreams];
 }
 
 class MediaError extends MediaState {

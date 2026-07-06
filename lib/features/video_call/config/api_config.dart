@@ -23,20 +23,37 @@ class VideoCallConfig {
 
   // WebRTC / SFU
   static const String iceConfig = '/api/webrtc/ice-config';
-  static String sfuJoin(String meetingId) => '/api/sfu/join/$meetingId';
-  static String sfuConsume(String meetingId) => '/api/sfu/consume/$meetingId';
-  static const String sfuConnectSend = '/api/sfu/connect-send';
-  static const String sfuProduce = '/api/sfu/produce';
+  static String sfuJoin(String meetingId) => '/api/Sfu/join/$meetingId';
+
+  static String sfuConsume(String meetingId) => '/api/Sfu/consume/$meetingId';
+
+  static String sfuConnectSend(String meetingId) =>
+      '/api/Sfu/transport/$meetingId/connect-send';
+
+  static String sfuConnectRecv(String meetingId) =>
+      '/api/Sfu/transport/$meetingId/connect-recv';
+
+  static String sfuProduce(String meetingId) => '/api/Sfu/producer/$meetingId';
+
+  static String sfuProducers(String meetingId) =>
+      '/api/Sfu/producers/$meetingId';
+
+  static String sfuCloseProducer(String meetingId) =>
+      '/api/Sfu/close-producer/$meetingId';
+
+  static const String producerCreatedWebhook =
+      '/api/Sfu/webhook/producer-created';
+
+  static const String producerClosedWebhook =
+      '/api/Sfu/webhook/producer-closed';
 
   // Chat
-  static String chatHistory(String meetingId) =>
-      '/api/Meetings/$meetingId/chat';
+  static String chatHistory(String meetingId) => '/api/Chat/history$meetingId';
 
   // Quiz
   static const String quizCreate = '/api/Quiz/create';
   static String quizStart(String sessionId) => '/api/Quiz/$sessionId/start';
   static String quizStop(String sessionId) => '/api/Quiz/$sessionId/stop';
   static const String quizAnswer = '/api/Quiz/answer';
-  static String quizResults(String sessionId) =>
-      '/api/Quiz/$sessionId/results';
+  static String quizResults(String sessionId) => '/api/Quiz/$sessionId/results';
 }

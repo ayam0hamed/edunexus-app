@@ -22,9 +22,19 @@ class VideoCallRepository {
     }
   }
 
-  Future<Map<String, dynamic>> joinMeeting(String meetingId, String userName, String connectionId) async {
+  Future<Map<String, dynamic>> joinMeeting(
+    String meetingId,
+    String userName,
+    String connectionId, {
+    String participantId = '',
+  }) async {
     try {
-      return await apiService.joinMeeting(meetingId, userName, connectionId);
+      return await apiService.joinMeeting(
+        meetingId,
+        userName,
+        connectionId,
+        participantId: participantId,
+      );
     } on ServerException catch (e) {
       throw ServerFailure(e.message, statusCode: e.statusCode);
     } catch (e) {

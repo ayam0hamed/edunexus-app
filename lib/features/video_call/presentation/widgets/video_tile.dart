@@ -22,6 +22,9 @@ class _VideoTileState extends State<VideoTile> {
   final _renderer = RTCVideoRenderer();
   bool _isRendererInitialized = false;
 
+  // Holds a stream that arrived while initialize() was still in-flight.
+  MediaStream? _pendingStream;
+
   @override
   void initState() {
     super.initState();
@@ -30,21 +33,26 @@ class _VideoTileState extends State<VideoTile> {
 
   Future<void> _initRenderer() async {
     await _renderer.initialize();
-    if (widget.remoteStream != null) {
-      _renderer.srcObject = widget.remoteStream;
-    }
-    if (mounted) {
-      setState(() {
-        _isRendererInitialized = true;
-      });
-    }
+    if (!mounted) return;
+
+    final streamToApply = _pendingStream ?? widget.remoteStream;
+    _pendingStream = null;
+    _renderer.srcObject = streamToApply;
+
+    setState(() {
+      _isRendererInitialized = true;
+    });
   }
 
   @override
   void didUpdateWidget(covariant VideoTile oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (widget.remoteStream != oldWidget.remoteStream) {
-      _renderer.srcObject = widget.remoteStream;
+      if (_isRendererInitialized) {
+        _renderer.srcObject = widget.remoteStream;
+      } else {
+        _pendingStream = widget.remoteStream;
+      }
     }
   }
 

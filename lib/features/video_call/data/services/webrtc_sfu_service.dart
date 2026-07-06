@@ -19,6 +19,9 @@ class WebrtcSfuService {
   final Map<String, MediaStream> _remoteStreams = {};
   final Map<String, Consumer> _consumers = {};
 
+  /// Stored so MediaCubit can pass it when consuming late-joining producers.
+  String? currentMeetingId;
+
   final _remoteStreamsController = StreamController<Map<String, MediaStream>>.broadcast();
 
   WebrtcSfuService(this.apiService);
@@ -79,6 +82,13 @@ class WebrtcSfuService {
       for (var track in _localStream!.getAudioTracks()) {
         track.enabled = enabled;
       }
+      // Pause/resume the Mediasoup producer so the SFU stops forwarding
+      // audio RTP to remote consumers when muted.
+      if (enabled) {
+        _audioProducer?.resume();
+      } else {
+        _audioProducer?.pause();
+      }
       debugPrint('WebrtcSfuService: Local audio toggled to $enabled');
     }
   }
@@ -88,11 +98,19 @@ class WebrtcSfuService {
       for (var track in _localStream!.getVideoTracks()) {
         track.enabled = enabled;
       }
+      // Pause/resume the Mediasoup producer so the SFU stops forwarding
+      // video RTP to remote consumers when camera is off.
+      if (enabled) {
+        _videoProducer?.resume();
+      } else {
+        _videoProducer?.pause();
+      }
       debugPrint('WebrtcSfuService: Local video toggled to $enabled');
     }
   }
 
   Future<void> initializeSfu(SfuJoinResponse sfuJoinResponse, String participantId, String meetingId) async {
+    currentMeetingId = meetingId;
     try {
       _mediasoupDevice = Device();
       final routerRtpCapabilities = RtpCapabilities.fromMap(sfuJoinResponse.rtpCapabilities);

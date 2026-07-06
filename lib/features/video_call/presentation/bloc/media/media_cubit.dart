@@ -1,5 +1,7 @@
+import 'dart:async';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:grad_project/features/video_call/data/services/webrtc_sfu_service.dart';
 import 'package:grad_project/features/video_call/data/services/signalr_hub_service.dart';
@@ -8,6 +10,8 @@ import 'media_state.dart';
 class MediaCubit extends Cubit<MediaState> {
   final WebrtcSfuService sfuService;
   final SignalrHubService hubService;
+
+  final List<StreamSubscription> _subscriptions = [];
 
   MediaCubit({
     required this.sfuService,
@@ -35,7 +39,57 @@ class MediaCubit extends Cubit<MediaState> {
         isAudioOn: true,
         isVideoOn: true,
         isScreenSharing: false,
+        remoteStreams: Map.from(sfuService.remoteStreams),
       ));
+
+      // 3. Subscribe to remote stream changes from SFU.
+      //    Every time WebrtcSfuService adds/updates a remote MediaStream, this
+      //    fires and re-emits MediaReady — which triggers the GridView to rebuild
+      //    and hand each VideoTile its stream.
+      _subscriptions.add(
+        sfuService.remoteStreamsStream.listen((updatedStreams) {
+          final current = state;
+          if (current is MediaReady) {
+            emit(current.copyWith(remoteStreams: Map.from(updatedStreams)));
+          }
+        }),
+      );
+
+      // 4. Subscribe to SfuProducerCreated hub events.
+      //    When a participant who joins AFTER us starts publishing, the hub
+      //    broadcasts SfuProducerCreated. We must consume that producer so their
+      //    video/audio actually arrives in our recv transport.
+      _subscriptions.add(
+        hubService.sfuProducerCreatedStream.listen((payload) async {
+          debugPrint(
+            'MediaCubit: New producer from ${payload.participantId} '
+            '(${payload.kind}) — consuming producerId=${payload.producerId}',
+          );
+          // Retrieve meetingId from the cubit's stored state isn't available here,
+          // so sfuService keeps a reference to the current meetingId.
+          try {
+            await sfuService.consumeRemoteProducer(
+              sfuService.currentMeetingId ?? '',
+              payload.participantId,
+              payload.producerId,
+            );
+          } catch (e) {
+            debugPrint('MediaCubit: consumeRemoteProducer failed: $e');
+          }
+        }),
+      );
+
+      // 5. Subscribe to SfuProducerClosed — remove stream tile when a producer stops.
+      _subscriptions.add(
+        hubService.sfuProducerClosedStream.listen((payload) {
+          final current = state;
+          if (current is MediaReady) {
+            final updated = Map<String, MediaStream>.from(current.remoteStreams);
+            updated.remove(payload.participantId);
+            emit(current.copyWith(remoteStreams: updated));
+          }
+        }),
+      );
     } catch (e) {
       emit(MediaError('Failed to initialize local media tracks: $e'));
     }
@@ -45,9 +99,10 @@ class MediaCubit extends Cubit<MediaState> {
     final currentState = state;
     if (currentState is MediaReady) {
       final newAudioState = !currentState.isAudioOn;
+      // toggleLocalAudio now also pauses/resumes the Mediasoup producer
       await sfuService.toggleLocalAudio(newAudioState);
-      
-      // Notify server via hub method
+
+      // Notify server via hub method so remote participants' ParticipantsCubit updates
       try {
         await hubService.toggleAudio(meetingId, newAudioState);
       } catch (e) {
@@ -62,6 +117,7 @@ class MediaCubit extends Cubit<MediaState> {
     final currentState = state;
     if (currentState is MediaReady) {
       final newVideoState = !currentState.isVideoOn;
+      // toggleLocalVideo now also pauses/resumes the Mediasoup producer
       await sfuService.toggleLocalVideo(newVideoState);
 
       // Notify server via hub method
@@ -85,9 +141,6 @@ class MediaCubit extends Cubit<MediaState> {
     final currentState = state;
     if (currentState is MediaReady) {
       try {
-        // flutter_webrtc supports getDisplayMedia on some platforms
-        // Standard WebRTC display media call
-        // we'll update screen sharing state
         await hubService.startScreenSharing(meetingId);
         emit(currentState.copyWith(isScreenSharing: true));
       } catch (e) {
@@ -110,6 +163,9 @@ class MediaCubit extends Cubit<MediaState> {
 
   @override
   Future<void> close() async {
+    for (var sub in _subscriptions) {
+      sub.cancel();
+    }
     await sfuService.stopLocalStream();
     return super.close();
   }

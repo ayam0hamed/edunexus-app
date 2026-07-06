@@ -48,12 +48,17 @@ class VideoCallApiService {
   Future<Map<String, dynamic>> joinMeeting(
     String meetingId,
     String userName,
-    String connectionId,
-  ) async {
+    String connectionId, {
+    String participantId = '',
+  }) async {
     try {
       final response = await dioClient.dio.post(
         VideoCallConfig.meetingsJoin(meetingId),
-        data: {'userName': userName, 'connectionId': connectionId},
+        data: {
+          'userName': userName,
+          'connectionId': connectionId,
+          'participantId': participantId,
+        },
       );
       debugPrint('Join meeting response: ${response.data}');
       return (response.data ?? <String, dynamic>{}) as Map<String, dynamic>;

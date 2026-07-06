@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:get_it/get_it.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:grad_project/core/routing/app_routes.dart';
 import 'package:grad_project/features/auth/domain/repositories/auth_repository.dart';
 import 'package:grad_project/features/auth/data/services/jwt_service.dart';
@@ -124,8 +125,44 @@ class _MeetingLobbyScreenState extends State<MeetingLobbyScreen> {
             },
           );
         } else if (state is VideoCallError) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(state.message), backgroundColor: Colors.redAccent),
+          final isPermissionError = state.message.toLowerCase().contains('permission') ||
+              state.message.toLowerCase().contains('blocked') ||
+              state.message.toLowerCase().contains('settings');
+
+          showDialog(
+            context: context,
+            builder: (_) => AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              title: Row(
+                children: [
+                  Icon(
+                    isPermissionError ? Icons.no_photography_outlined : Icons.error_outline,
+                    color: Colors.redAccent,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    isPermissionError ? 'Permission Required' : 'Error',
+                    style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+                  ),
+                ],
+              ),
+              content: Text(state.message),
+              actions: [
+                if (isPermissionError)
+                  TextButton.icon(
+                    icon: const Icon(Icons.settings_outlined),
+                    label: const Text('Open Settings'),
+                    onPressed: () {
+                      Navigator.pop(context);
+                      openAppSettings();
+                    },
+                  ),
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Dismiss'),
+                ),
+              ],
+            ),
           );
         }
       },

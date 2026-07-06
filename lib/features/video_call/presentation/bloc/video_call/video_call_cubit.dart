@@ -1,18 +1,19 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter/foundation.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:grad_project/features/video_call/domain/repositories/video_call_repository.dart';
 import 'package:grad_project/features/video_call/data/services/signalr_hub_service.dart';
 import 'package:grad_project/features/video_call/data/services/webrtc_sfu_service.dart';
 import 'package:grad_project/features/auth/domain/repositories/auth_repository.dart';
-import 'package:jwt_decoder/jwt_decoder.dart';
+import 'package:grad_project/features/auth/data/services/jwt_service.dart';
 import 'video_call_state.dart';
-import 'package:uuid/uuid.dart';
 
 class VideoCallCubit extends Cubit<VideoCallState> {
   final VideoCallRepository repository;
   final SignalrHubService hubService;
   final WebrtcSfuService sfuService;
   final AuthRepository authRepository;
+  final JwtService _jwtService = JwtService();
 
   VideoCallCubit({
     required this.repository,
@@ -49,65 +50,64 @@ class VideoCallCubit extends Cubit<VideoCallState> {
   }) async {
     emit(const VideoCallLoading());
     try {
-      // Debug: confirm the exact backend meeting ID being used (Issue 7)
       debugPrint('[Meeting] Opening meeting: meetingId=$meetingId');
 
-      await hubService.connect();
+      // 1. Decode participantId from JWT BEFORE any network calls.
+      //    The backend standardises on the `UserId` claim (a GUID) for all
+      //    participant identity checks across SignalR hub and SFU server.
+      final token = await authRepository.getToken();
+      final participantId = _jwtService.getUserId(token ?? '');
+      if (participantId == null || participantId.isEmpty) {
+        throw Exception(
+          'Cannot join meeting: UserId claim is missing from the JWT token. '
+          'Please log out and log in again.',
+        );
+      }
+      debugPrint('VideoCallCubit: participantId from JWT UserId claim = $participantId');
 
+      // 2. Connect SignalR hub
+      await hubService.connect();
       final connectionId = hubService.connectionId ?? '';
 
-      // 2. Perform REST Join API
+      // 3. Perform REST Join API – include participantId so the backend
+      //    registers the correct GUID from the start.
       final joinResult = await repository.joinMeeting(
         meetingId,
         userName,
         connectionId,
+        participantId: participantId,
       );
 
-      final participants = (joinResult['participants'] as List?) ?? [];
+      debugPrint('========================');
+      debugPrint('Join Response: $joinResult');
+      debugPrint('ParticipantId = $participantId');
+      debugPrint('MeetingId     = $meetingId');
+      debugPrint('========================');
 
-      String participantId = const Uuid().v4();
-      
-      final token = await authRepository.getToken();
-      if (token != null && token.isNotEmpty) {
-        try {
-          final decodedToken = JwtDecoder.decode(token);
-          if (decodedToken.containsKey('unique_name')) {
-            participantId = decodedToken['unique_name'].toString();
-            debugPrint('VideoCallCubit: Using unique_name from JWT as Participant ID: $participantId');
-          } else {
-            // fallback
-            for (final p in participants) {
-              final participant = p as Map<String, dynamic>;
-              if (participant['name'] == userName) {
-                participantId = participant['id'].toString();
-                break;
-              }
-            }
-          }
-        } catch (e) {
-          debugPrint('VideoCallCubit: Error decoding JWT: $e');
-        }
-      } else {
-        // fallback
-        for (final p in participants) {
-          final participant = p as Map<String, dynamic>;
-          if (participant['name'] == userName) {
-            participantId = participant['id'].toString();
-            break;
-          }
-        }
+      // 4. Request camera & microphone permissions BEFORE getUserMedia().
+      //    Without this the OS returns NotAllowedError (DOMException).
+      final cameraStatus = await Permission.camera.request();
+      final micStatus = await Permission.microphone.request();
+
+      // If permanently denied, the OS won't show a dialog — send user to Settings.
+      if (cameraStatus.isPermanentlyDenied || micStatus.isPermanentlyDenied) {
+        await openAppSettings();
+        throw Exception(
+          'Camera and microphone access is blocked. '
+          'Please enable them in Settings → Apps → [App] → Permissions, then rejoin.',
+        );
       }
 
-      debugPrint('========================');
-      debugPrint('Join Response');
-      debugPrint(joinResult.toString());
-      debugPrint('ParticipantId = $participantId');
-      debugPrint('MeetingId = $meetingId');
-      debugPrint('========================');
-      // 3. Invoke Hub Join method
-      await hubService.joinMeeting(meetingId, userName);
+      if (!cameraStatus.isGranted || !micStatus.isGranted) {
+        throw Exception(
+          'Camera and microphone permissions are required to join a meeting. '
+          'Please tap "Allow" when prompted and try again.',
+        );
+      }
 
-      // 4. Initialize Local Stream
+      // 5. Initialize Local Stream (hub join already handled by the REST call above,
+      //    which passes connectionId so the backend automatically associates the
+      //    SignalR connection with the meeting room.)
       await sfuService.startLocalStream();
 
       // 5. Connect to SFU and setup WebRTC
@@ -116,10 +116,9 @@ class VideoCallCubit extends Cubit<VideoCallState> {
         await sfuService.initializeSfu(sfuResponse, participantId, meetingId);
       } catch (e) {
         debugPrint(
-          'VideoCallCubit: SFU initialization failed, proceeding with fallback media: $e',
+          'VideoCallCubit: SFU initialization failed, proceeding without SFU: $e',
         );
       }
-      debugPrint("Join Result = $joinResult");
 
       emit(
         VideoCallJoined(
