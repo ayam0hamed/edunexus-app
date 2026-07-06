@@ -224,7 +224,7 @@ class VideoCallApiService {
   ) async {
     try {
       await dioClient.dio.post(
-        VideoCallConfig.sfuConnectSend,
+        VideoCallConfig.sfuConnectSend(meetingId),
         data: {
           'meetingId': meetingId,
           'participantId': participantId,
@@ -250,7 +250,7 @@ class VideoCallApiService {
   ) async {
     try {
       final response = await dioClient.dio.post(
-        VideoCallConfig.sfuProduce,
+        VideoCallConfig.sfuProduce(meetingId),
         data: {
           'meetingId': meetingId,
           'participantId': participantId,
