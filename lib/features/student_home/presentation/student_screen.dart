@@ -3,7 +3,6 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:get_it/get_it.dart';
 import 'package:grad_project/core/routing/app_routes.dart';
 import 'package:grad_project/features/student_home/data/models/course_model.dart';
-import 'package:grad_project/features/student_home/data/models/meeting_model.dart';
 import 'package:grad_project/features/student_home/presentation/bloc/student_dashboard_bloc.dart';
 import 'package:grad_project/features/student_home/presentation/bloc/student_dashboard_event.dart';
 import 'package:grad_project/features/student_home/presentation/bloc/student_dashboard_state.dart';
@@ -20,11 +19,73 @@ class StudentScreen extends StatefulWidget {
 
 class _StudentScreenState extends State<StudentScreen> {
   final TextEditingController meetingIdController = TextEditingController();
+  bool _isJoining = false;
 
   @override
   void dispose() {
     meetingIdController.dispose();
     super.dispose();
+  }
+
+  Future<void> _joinMeeting(String meetingId, String userName) async {
+    if (meetingId.trim().isEmpty) return;
+
+    setState(() => _isJoining = true);
+
+    final cubit = GetIt.I<VideoCallCubit>();
+
+    await cubit.joinMeeting(meetingId.trim(), userName);
+
+    if (!mounted) return;
+
+    setState(() => _isJoining = false);
+
+    if (cubit.state is VideoCallJoined) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => BlocProvider.value(
+            value: cubit,
+            child: MeetingRoomScreen(meetingId: meetingId.trim()),
+          ),
+        ),
+      );
+    } else if (cubit.state is VideoCallError) {
+      final errorState = cubit.state as VideoCallError;
+      // Extract a cleaner message from the error
+      final rawMessage = errorState.message;
+      final String displayMessage;
+      if (rawMessage.contains('Meeting not found or inactive')) {
+        displayMessage =
+            'Meeting not found or has already ended.\nPlease check the Meeting ID and try again.';
+      } else if (rawMessage.contains('Failed to join meeting')) {
+        // Try to show the backend message if embedded
+        final backendMsg = rawMessage.replaceFirst('Failed to join meeting: ', '');
+        displayMessage = backendMsg.isNotEmpty ? backendMsg : rawMessage;
+      } else {
+        displayMessage = rawMessage;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(Icons.error_outline, color: Colors.white),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  displayMessage,
+                  style: const TextStyle(color: Colors.white),
+                ),
+              ),
+            ],
+          ),
+          backgroundColor: Colors.redAccent,
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 4),
+        ),
+      );
+    }
   }
 
   @override
@@ -326,41 +387,53 @@ class _StudentScreenState extends State<StudentScreen> {
                           color: Color(0xFF163D69),
                         ),
                       ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Enter the Meeting ID provided by your instructor.',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Colors.black.withOpacity(0.5),
+                        ),
+                      ),
                       const SizedBox(height: 12),
                       TextField(
                         controller: meetingIdController,
                         decoration: const InputDecoration(
                           hintText: "Enter Meeting ID",
                           border: OutlineInputBorder(),
+                          prefixIcon: Icon(Icons.videocam_outlined),
                         ),
                       ),
                       const SizedBox(height: 12),
-                      ElevatedButton(
-                        onPressed: () async {
-                          if (meetingIdController.text.trim().isEmpty) return;
-
-                          final cubit = GetIt.I<VideoCallCubit>();
-
-                          await cubit.joinMeeting(
-                            meetingIdController.text.trim(),
-                            dashboard.profile.fullName,
-                          );
-
-                          if (cubit.state is VideoCallJoined) {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => BlocProvider.value(
-                                  value: cubit,
-                                  child: MeetingRoomScreen(
-                                    meetingId: meetingIdController.text.trim(),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          onPressed: _isJoining
+                              ? null
+                              : () => _joinMeeting(
+                                    meetingIdController.text,
+                                    dashboard.profile.fullName,
                                   ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF163D69),
+                            disabledBackgroundColor:
+                                const Color(0xFF163D69).withOpacity(0.6),
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                          ),
+                          child: _isJoining
+                              ? const SizedBox(
+                                  height: 20,
+                                  width: 20,
+                                  child: CircularProgressIndicator(
+                                    color: Colors.white,
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : const Text(
+                                  "Join Meeting",
+                                  style: TextStyle(color: Colors.white),
                                 ),
-                              ),
-                            );
-                          }
-                        },
-                        child: const Text("Join Meeting"),
+                        ),
                       ),
                     ],
                   ),

@@ -12,7 +12,7 @@ import 'package:grad_project/features/auth/presentation/screens/check_email_scre
 import 'package:grad_project/features/auth/presentation/screens/forget_password.dart';
 import 'package:grad_project/features/auth/presentation/screens/new_password.dart';
 import 'package:grad_project/features/onboarding/screens/landing.dart';
-import 'package:grad_project/features/student_home/student_screen.dart';
+import 'package:grad_project/features/student_home/presentation/student_screen.dart';
 import 'package:grad_project/features/settings/change_password.dart';
 import 'package:grad_project/features/settings/connected_apps.dart';
 import 'package:grad_project/features/auth/presentation/screens/logout.dart';
