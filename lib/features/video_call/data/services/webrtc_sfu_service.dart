@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
-import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:mediasoup_client_flutter/mediasoup_client_flutter.dart';
 import 'package:grad_project/features/video_call/data/models/sfu_models.dart';
 import 'package:grad_project/features/video_call/data/services/video_call_api_service.dart';
@@ -21,6 +20,7 @@ class WebrtcSfuService {
 
   /// Stored so MediaCubit can pass it when consuming late-joining producers.
   String? currentMeetingId;
+  String? currentParticipantId;
 
   final _remoteStreamsController = StreamController<Map<String, MediaStream>>.broadcast();
 
@@ -79,15 +79,38 @@ class WebrtcSfuService {
 
   Future<void> toggleLocalAudio(bool enabled) async {
     if (_localStream != null) {
-      for (var track in _localStream!.getAudioTracks()) {
-        track.enabled = enabled;
+      final audioTrack = _localStream!.getAudioTracks().firstOrNull;
+      if (audioTrack != null) {
+        audioTrack.enabled = enabled;
       }
-      // Pause/resume the Mediasoup producer so the SFU stops forwarding
-      // audio RTP to remote consumers when muted.
+      
       if (enabled) {
-        _audioProducer?.resume();
+        if (_audioProducer == null && _sendTransport != null && audioTrack != null) {
+          _sendTransport!.produce(
+            track: audioTrack,
+            stream: _localStream!,
+            source: 'mic',
+            appData: {
+              'type': 'mic',
+              'participantId': currentParticipantId,
+            },
+          );
+        } else {
+          _audioProducer?.resume();
+        }
       } else {
-        _audioProducer?.pause();
+        if (_audioProducer != null) {
+          final pId = _audioProducer!.id;
+          _audioProducer!.close();
+          _audioProducer = null;
+          if (currentMeetingId != null && currentParticipantId != null) {
+            try {
+              await apiService.sfuCloseProducer(currentMeetingId!, currentParticipantId!, pId);
+            } catch (e) {
+              debugPrint('WebrtcSfuService: Failed to close audio producer on backend: $e');
+            }
+          }
+        }
       }
       debugPrint('WebrtcSfuService: Local audio toggled to $enabled');
     }
@@ -95,15 +118,38 @@ class WebrtcSfuService {
 
   Future<void> toggleLocalVideo(bool enabled) async {
     if (_localStream != null) {
-      for (var track in _localStream!.getVideoTracks()) {
-        track.enabled = enabled;
+      final videoTrack = _localStream!.getVideoTracks().firstOrNull;
+      if (videoTrack != null) {
+        videoTrack.enabled = enabled;
       }
-      // Pause/resume the Mediasoup producer so the SFU stops forwarding
-      // video RTP to remote consumers when camera is off.
+      
       if (enabled) {
-        _videoProducer?.resume();
+        if (_videoProducer == null && _sendTransport != null && videoTrack != null) {
+          _sendTransport!.produce(
+            track: videoTrack,
+            stream: _localStream!,
+            source: 'cam',
+            appData: {
+              'type': 'cam',
+              'participantId': currentParticipantId,
+            },
+          );
+        } else {
+          _videoProducer?.resume();
+        }
       } else {
-        _videoProducer?.pause();
+        if (_videoProducer != null) {
+          final pId = _videoProducer!.id;
+          _videoProducer!.close();
+          _videoProducer = null;
+          if (currentMeetingId != null && currentParticipantId != null) {
+            try {
+              await apiService.sfuCloseProducer(currentMeetingId!, currentParticipantId!, pId);
+            } catch (e) {
+              debugPrint('WebrtcSfuService: Failed to close video producer on backend: $e');
+            }
+          }
+        }
       }
       debugPrint('WebrtcSfuService: Local video toggled to $enabled');
     }
@@ -111,6 +157,7 @@ class WebrtcSfuService {
 
   Future<void> initializeSfu(SfuJoinResponse sfuJoinResponse, String participantId, String meetingId) async {
     currentMeetingId = meetingId;
+    currentParticipantId = participantId;
     try {
       _mediasoupDevice = Device();
       final routerRtpCapabilities = RtpCapabilities.fromMap(sfuJoinResponse.rtpCapabilities);
@@ -180,7 +227,7 @@ class WebrtcSfuService {
       );
 
       _recvTransport!.on('connect', (Map data) {
-        apiService.sfuConnectSend(
+        apiService.sfuConnectRecv(
           meetingId,
           participantId,
           _recvTransport!.id,
@@ -198,7 +245,10 @@ class WebrtcSfuService {
             track: _localStream!.getAudioTracks().first,
             stream: _localStream!,
             source: 'mic',
-            appData: {'type': 'mic'},
+            appData: {
+              'type': 'mic',
+              'participantId': participantId,
+            },
           );
         }
         if (_localStream!.getVideoTracks().isNotEmpty) {
@@ -206,24 +256,35 @@ class WebrtcSfuService {
             track: _localStream!.getVideoTracks().first,
             stream: _localStream!,
             source: 'cam',
-            appData: {'type': 'cam'},
+            appData: {
+              'type': 'cam',
+              'participantId': participantId,
+            },
           );
         }
       }
 
-      for (var producer in sfuJoinResponse.existingProducers) {
-        await consumeRemoteProducer(meetingId, participantId, producer.producerId);
+      // Fetch active producers from the endpoint
+      try {
+        final producers = await apiService.getProducers(meetingId);
+        for (var producer in producers) {
+          if (producer.participantId.toLowerCase() != participantId.toLowerCase()) {
+            await consumeRemoteProducer(meetingId, participantId, producer.producerId);
+          }
+        }
+      } catch (e) {
+        debugPrint('WebrtcSfuService: Failed to load/consume existing producers: $e');
       }
     } catch (e) {
       debugPrint('WebrtcSfuService: Error initializing SFU: $e');
     }
   }
 
-  Future<void> consumeRemoteProducer(String meetingId, String participantId, String producerId) async {
+  Future<void> consumeRemoteProducer(String meetingId, String localParticipantId, String producerId) async {
     try {
       final consumerData = await apiService.sfuConsume(
         meetingId,
-        participantId,
+        localParticipantId,
         producerId,
         _mediasoupDevice!.rtpCapabilities.toMap(),
       );
@@ -248,7 +309,18 @@ class WebrtcSfuService {
   Future<void> closeConsumer(String producerId) async {
     final consumer = _consumers.remove(producerId);
     if (consumer != null) {
+      final pId = consumer.appData['participantId']?.toString() ?? '';
       await consumer.close();
+      if (pId.isNotEmpty && _remoteStreams.containsKey(pId)) {
+        final stream = _remoteStreams[pId]!;
+        final track = consumer.track;
+        await stream.removeTrack(track);
+        if (stream.getTracks().isEmpty) {
+          _remoteStreams.remove(pId);
+          await stream.dispose();
+        }
+        _remoteStreamsController.add(Map.from(_remoteStreams));
+      }
     }
   }
 

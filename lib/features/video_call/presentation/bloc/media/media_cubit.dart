@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:grad_project/features/video_call/data/services/webrtc_sfu_service.dart';
 import 'package:grad_project/features/video_call/data/services/signalr_hub_service.dart';
@@ -61,16 +60,18 @@ class MediaCubit extends Cubit<MediaState> {
       //    video/audio actually arrives in our recv transport.
       _subscriptions.add(
         hubService.sfuProducerCreatedStream.listen((payload) async {
+          final localId = sfuService.currentParticipantId ?? '';
+          if (payload.participantId.toLowerCase() == localId.toLowerCase()) {
+            return;
+          }
           debugPrint(
             'MediaCubit: New producer from ${payload.participantId} '
             '(${payload.kind}) — consuming producerId=${payload.producerId}',
           );
-          // Retrieve meetingId from the cubit's stored state isn't available here,
-          // so sfuService keeps a reference to the current meetingId.
           try {
             await sfuService.consumeRemoteProducer(
               sfuService.currentMeetingId ?? '',
-              payload.participantId,
+              localId,
               payload.producerId,
             );
           } catch (e) {
@@ -81,13 +82,8 @@ class MediaCubit extends Cubit<MediaState> {
 
       // 5. Subscribe to SfuProducerClosed — remove stream tile when a producer stops.
       _subscriptions.add(
-        hubService.sfuProducerClosedStream.listen((payload) {
-          final current = state;
-          if (current is MediaReady) {
-            final updated = Map<String, MediaStream>.from(current.remoteStreams);
-            updated.remove(payload.participantId);
-            emit(current.copyWith(remoteStreams: updated));
-          }
+        hubService.sfuProducerClosedStream.listen((payload) async {
+          await sfuService.closeConsumer(payload.producerId);
         }),
       );
     } catch (e) {

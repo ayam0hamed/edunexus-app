@@ -67,7 +67,27 @@ class ReactionsCubit extends Cubit<ReactionsState> {
     }
   }
 
-  Future<void> sendReaction(String meetingId, String emoji) async {
+  Future<void> sendReaction(String meetingId, String emoji, String userName) async {
+    // Immediately display the reaction animation locally
+    final reactionId = const Uuid().v4();
+    final event = ReactionEvent(
+      id: reactionId,
+      emoji: emoji,
+      fullName: userName,
+      timestamp: DateTime.now(),
+    );
+
+    final list = List<ReactionEvent>.from(state.recentReojis)..add(event);
+    emit(state.copyWith(recentReojis: list));
+
+    // Start a 3-second timer to auto-clear this reaction from the screen
+    _activeTimers[reactionId] = Timer(const Duration(seconds: 3), () {
+      final updatedList = List<ReactionEvent>.from(state.recentReojis)
+        ..removeWhere((e) => e.id == reactionId);
+      emit(state.copyWith(recentReojis: updatedList));
+      _activeTimers.remove(reactionId);
+    });
+
     try {
       await hubService.sendReaction(meetingId, emoji);
     } catch (e) {

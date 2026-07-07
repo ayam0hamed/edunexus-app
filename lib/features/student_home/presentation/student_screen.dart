@@ -60,7 +60,10 @@ class _StudentScreenState extends State<StudentScreen> {
             'Meeting not found or has already ended.\nPlease check the Meeting ID and try again.';
       } else if (rawMessage.contains('Failed to join meeting')) {
         // Try to show the backend message if embedded
-        final backendMsg = rawMessage.replaceFirst('Failed to join meeting: ', '');
+        final backendMsg = rawMessage.replaceFirst(
+          'Failed to join meeting: ',
+          '',
+        );
         displayMessage = backendMsg.isNotEmpty ? backendMsg : rawMessage;
       } else {
         displayMessage = rawMessage;
@@ -411,13 +414,14 @@ class _StudentScreenState extends State<StudentScreen> {
                           onPressed: _isJoining
                               ? null
                               : () => _joinMeeting(
-                                    meetingIdController.text,
-                                    dashboard.profile.fullName,
-                                  ),
+                                  meetingIdController.text,
+                                  dashboard.profile.email,
+                                ),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: const Color(0xFF163D69),
-                            disabledBackgroundColor:
-                                const Color(0xFF163D69).withOpacity(0.6),
+                            disabledBackgroundColor: const Color(
+                              0xFF163D69,
+                            ).withOpacity(0.6),
                             padding: const EdgeInsets.symmetric(vertical: 14),
                           ),
                           child: _isJoining

@@ -112,6 +112,45 @@ class VideoCallRepository {
     }
   }
 
+  Future<void> sfuConnectRecv(
+    String meetingId,
+    String participantId,
+    String transportId,
+    Map<String, dynamic> dtlsParameters,
+  ) async {
+    try {
+      await apiService.sfuConnectRecv(meetingId, participantId, transportId, dtlsParameters);
+    } on ServerException catch (e) {
+      throw ServerFailure(e.message, statusCode: e.statusCode);
+    } catch (e) {
+      throw UnknownFailure(e.toString());
+    }
+  }
+
+  Future<void> sfuCloseProducer(
+    String meetingId,
+    String participantId,
+    String producerId,
+  ) async {
+    try {
+      await apiService.sfuCloseProducer(meetingId, participantId, producerId);
+    } on ServerException catch (e) {
+      throw ServerFailure(e.message, statusCode: e.statusCode);
+    } catch (e) {
+      throw UnknownFailure(e.toString());
+    }
+  }
+
+  Future<List<ProducerInfo>> getProducers(String meetingId) async {
+    try {
+      return await apiService.getProducers(meetingId);
+    } on ServerException catch (e) {
+      throw ServerFailure(e.message, statusCode: e.statusCode);
+    } catch (e) {
+      throw UnknownFailure(e.toString());
+    }
+  }
+
   Future<List<ChatMessageModel>> getChatHistory(String meetingId) async {
     try {
       return await apiService.getChatHistory(meetingId);

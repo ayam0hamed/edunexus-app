@@ -19,12 +19,12 @@ class ChatMessageModel extends Equatable {
 
   factory ChatMessageModel.fromJson(Map<String, dynamic> json) {
     return ChatMessageModel(
-      id: json['id']?.toString() ?? '',
-      meetingId: json['meetingId']?.toString() ?? '',
-      senderId: json['senderId']?.toString() ?? '',
-      senderDisplayName: json['senderDisplayName']?.toString() ?? json['userName']?.toString() ?? 'Unknown',
-      content: json['content']?.toString() ?? '',
-      sentAt: json['sentAt']?.toString() ?? DateTime.now().toIso8601String(),
+      id: (json['id'] ?? json['Id'])?.toString() ?? '',
+      meetingId: (json['meetingId'] ?? json['MeetingId'])?.toString() ?? '',
+      senderId: (json['senderId'] ?? json['SenderId'])?.toString() ?? '',
+      senderDisplayName: (json['senderDisplayName'] ?? json['SenderDisplayName'] ?? json['userName'] ?? json['UserName'])?.toString() ?? 'Unknown',
+      content: (json['content'] ?? json['Content'])?.toString() ?? '',
+      sentAt: (json['sentAt'] ?? json['SentAt'])?.toString() ?? DateTime.now().toIso8601String(),
     );
   }
 

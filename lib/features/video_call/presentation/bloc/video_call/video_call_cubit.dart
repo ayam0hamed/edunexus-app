@@ -78,6 +78,9 @@ class VideoCallCubit extends Cubit<VideoCallState> {
         participantId: participantId,
       );
 
+      // Now join the SignalR Hub group and trigger participant events
+      await hubService.joinMeeting(meetingId, userName);
+
       debugPrint('========================');
       debugPrint('Join Response: $joinResult');
       debugPrint('ParticipantId = $participantId');

@@ -69,9 +69,9 @@ class HandRaisedPayload extends Equatable {
 
   factory HandRaisedPayload.fromJson(Map<String, dynamic> json) {
     return HandRaisedPayload(
-      participantId: json['participantId']?.toString() ?? '',
-      fullName: json['fullName']?.toString() ?? '',
-      raised: json['raised'] as bool? ?? false,
+      participantId: json['participantId']?.toString() ?? json['id']?.toString() ?? '',
+      fullName: json['fullName']?.toString() ?? json['name']?.toString() ?? json['userName']?.toString() ?? 'Unknown',
+      raised: json['raised'] as bool? ?? json['isHandRaised'] as bool? ?? false,
     );
   }
 
@@ -88,7 +88,7 @@ class ReactionPayload extends Equatable {
   factory ReactionPayload.fromJson(Map<String, dynamic> json) {
     return ReactionPayload(
       emoji: json['emoji']?.toString() ?? '',
-      fullName: json['fullName']?.toString() ?? '',
+      fullName: json['fullName']?.toString() ?? json['userName']?.toString() ?? json['senderDisplayName']?.toString() ?? 'Unknown',
     );
   }
 

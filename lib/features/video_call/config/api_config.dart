@@ -33,7 +33,7 @@ class VideoCallConfig {
   static String sfuConnectRecv(String meetingId) =>
       '/api/Sfu/transport/$meetingId/connect-recv';
 
-  static String sfuProduce(String meetingId) => '/api/Sfu/producer/$meetingId';
+  static String sfuProduce(String meetingId) => '/api/Sfu/produce/$meetingId';
 
   static String sfuProducers(String meetingId) =>
       '/api/Sfu/producers/$meetingId';
@@ -48,7 +48,7 @@ class VideoCallConfig {
       '/api/Sfu/webhook/producer-closed';
 
   // Chat
-  static String chatHistory(String meetingId) => '/api/Chat/history$meetingId';
+  static String chatHistory(String meetingId) => '/api/Chat/history/$meetingId';
 
   // Quiz
   static const String quizCreate = '/api/Quiz/create';

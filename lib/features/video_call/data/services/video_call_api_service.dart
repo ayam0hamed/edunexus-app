@@ -224,7 +224,7 @@ class VideoCallApiService {
   ) async {
     try {
       await dioClient.dio.post(
-        VideoCallConfig.sfuConnectSend,
+        VideoCallConfig.sfuConnectSend(meetingId),
         data: {
           'meetingId': meetingId,
           'participantId': participantId,
@@ -241,6 +241,31 @@ class VideoCallApiService {
     }
   }
 
+  Future<void> sfuConnectRecv(
+    String meetingId,
+    String participantId,
+    String transportId,
+    Map<String, dynamic> dtlsParameters,
+  ) async {
+    try {
+      await dioClient.dio.post(
+        VideoCallConfig.sfuConnectRecv(meetingId),
+        data: {
+          'meetingId': meetingId,
+          'participantId': participantId,
+          'transportId': transportId,
+          'dtlsParameters': dtlsParameters,
+        },
+      );
+    } on DioException catch (e) {
+      throw ServerException(
+        e.response?.data?.toString() ??
+            e.message ??
+            'Failed to connect recv transport',
+      );
+    }
+  }
+
   Future<String> sfuProduce(
     String meetingId,
     String participantId,
@@ -250,7 +275,7 @@ class VideoCallApiService {
   ) async {
     try {
       final response = await dioClient.dio.post(
-        VideoCallConfig.sfuProduce,
+        VideoCallConfig.sfuProduce(meetingId),
         data: {
           'meetingId': meetingId,
           'participantId': participantId,
@@ -290,6 +315,47 @@ class VideoCallApiService {
         e.response?.data?.toString() ??
             e.message ??
             'Failed to consume tracks on SFU',
+      );
+    }
+  }
+
+  Future<void> sfuCloseProducer(
+    String meetingId,
+    String participantId,
+    String producerId,
+  ) async {
+    try {
+      await dioClient.dio.post(
+        VideoCallConfig.sfuCloseProducer(meetingId),
+        data: {'participantId': participantId, 'producerId': producerId},
+      );
+    } on DioException catch (e) {
+      throw ServerException(
+        e.response?.data?.toString() ??
+            e.message ??
+            'Failed to close producer on SFU',
+      );
+    }
+  }
+
+  Future<List<ProducerInfo>> getProducers(String meetingId) async {
+    try {
+      final response = await dioClient.dio.get(
+        VideoCallConfig.sfuProducers(meetingId),
+      );
+      final data = response.data;
+      if (data is List) {
+        return data
+            .whereType<Map<String, dynamic>>()
+            .map(ProducerInfo.fromJson)
+            .toList();
+      }
+      return const [];
+    } on DioException catch (e) {
+      throw ServerException(
+        e.response?.data?.toString() ??
+            e.message ??
+            'Failed to load active producers from SFU',
       );
     }
   }

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:signalr_netcore/signalr_client.dart';
 import 'package:grad_project/features/auth/domain/repositories/auth_repository.dart';
+import 'package:grad_project/features/auth/data/services/jwt_service.dart';
 import 'package:grad_project/features/video_call/config/api_config.dart';
 import 'package:grad_project/features/video_call/data/models/chat_message_model.dart';
 import 'package:grad_project/features/video_call/data/models/quiz_models.dart';
@@ -10,6 +11,9 @@ import 'package:grad_project/features/video_call/data/models/signalr_payloads.da
 class SignalrHubService {
   final AuthRepository authRepository;
   HubConnection? _hubConnection;
+  
+  String? _currentMeetingId;
+  String? _currentEmail;
 
   // StreamControllers for client events
   final _participantJoinedCtrl = StreamController<ParticipantJoinedPayload>.broadcast();
@@ -98,6 +102,10 @@ class SignalrHubService {
   void _registerHubCallbacks() {
     if (_hubConnection == null) return;
 
+    _hubConnection!.on('MeetingJoined', (args) {
+      debugPrint('SignalrHubService: MeetingJoined event received: $args');
+    });
+
     _hubConnection!.on('ParticipantJoined', (args) {
       if (args != null && args.isNotEmpty) {
         final payload = ParticipantJoinedPayload.fromJson(args[0] as Map<String, dynamic>);
@@ -153,19 +161,11 @@ class SignalrHubService {
       }
     });
 
-    _hubConnection!.on('ParticipantHandRaised', (args) {
-      if (args != null && args.isNotEmpty) {
-        final payload = HandRaisedPayload.fromJson(args[0] as Map<String, dynamic>);
-        _participantHandRaisedCtrl.add(payload);
-      }
-    });
+    _hubConnection!.on('ParticipantHandRaised', (args) => _onHandRaised(args));
+    _hubConnection!.on('RaiseHand', (args) => _onHandRaised(args));
 
-    _hubConnection!.on('ParticipantReaction', (args) {
-      if (args != null && args.isNotEmpty) {
-        final payload = ReactionPayload.fromJson(args[0] as Map<String, dynamic>);
-        _participantReactionCtrl.add(payload);
-      }
-    });
+    _hubConnection!.on('ParticipantReaction', (args) => _onReactionReceived(args));
+    _hubConnection!.on('ReactionReceived', (args) => _onReactionReceived(args));
 
     _hubConnection!.on('ParticipantKicked', (args) {
       if (args != null && args.isNotEmpty) {
@@ -206,12 +206,9 @@ class SignalrHubService {
       }
     });
 
-    _hubConnection!.on('ReceiveChatMessage', (args) {
-      if (args != null && args.isNotEmpty) {
-        final payload = ChatMessageModel.fromJson(args[0] as Map<String, dynamic>);
-        _receiveChatMessageCtrl.add(payload);
-      }
-    });
+    _hubConnection!.on('ReceiveChatMessage', (args) => _onMessageReceived(args));
+    _hubConnection!.on('MessageReceived', (args) => _onMessageReceived(args));
+    _hubConnection!.on('ReceiveMessage', (args) => _onMessageReceived(args));
 
     _hubConnection!.on('QuizStarted', (args) {
       if (args != null && args.isNotEmpty) {
@@ -232,91 +229,151 @@ class SignalrHubService {
       }
     });
 
-    _hubConnection!.on('SfuProducerCreated', (args) {
-      if (args != null && args.isNotEmpty) {
-        final payload = ProducerCreatedPayload.fromJson(args[0] as Map<String, dynamic>);
-        _sfuProducerCreatedCtrl.add(payload);
-      }
-    });
+    _hubConnection!.on('SfuProducerCreated', (args) => _onProducerCreated(args));
+    _hubConnection!.on('ProducerCreated', (args) => _onProducerCreated(args));
 
-    _hubConnection!.on('SfuProducerClosed', (args) {
-      if (args != null && args.isNotEmpty) {
-        final payload = ProducerClosedPayload.fromJson(args[0] as Map<String, dynamic>);
-        _sfuProducerClosedCtrl.add(payload);
-      }
-    });
+    _hubConnection!.on('SfuProducerClosed', (args) => _onProducerClosed(args));
+    _hubConnection!.on('ProducerClosed', (args) => _onProducerClosed(args));
+  }
+
+  void _onHandRaised(List<Object?>? args) {
+    if (args != null && args.isNotEmpty) {
+      final payload = HandRaisedPayload.fromJson(args[0] as Map<String, dynamic>);
+      _participantHandRaisedCtrl.add(payload);
+    }
+  }
+
+  void _onReactionReceived(List<Object?>? args) {
+    if (args != null && args.isNotEmpty) {
+      final payload = ReactionPayload.fromJson(args[0] as Map<String, dynamic>);
+      _participantReactionCtrl.add(payload);
+    }
+  }
+
+  void _onMessageReceived(List<Object?>? args) {
+    if (args != null && args.isNotEmpty) {
+      final payload = ChatMessageModel.fromJson(args[0] as Map<String, dynamic>);
+      _receiveChatMessageCtrl.add(payload);
+    }
+  }
+
+  void _onProducerCreated(List<Object?>? args) {
+    if (args != null && args.isNotEmpty) {
+      final payload = ProducerCreatedPayload.fromJson(args[0] as Map<String, dynamic>);
+      _sfuProducerCreatedCtrl.add(payload);
+    }
+  }
+
+  void _onProducerClosed(List<Object?>? args) {
+    if (args != null && args.isNotEmpty) {
+      final payload = ProducerClosedPayload.fromJson(args[0] as Map<String, dynamic>);
+      _sfuProducerClosedCtrl.add(payload);
+    }
   }
 
   // Hub Invoke Methods
   Future<void> joinMeeting(String meetingId, String userName) async {
+    _currentMeetingId = meetingId;
+    _currentEmail = userName;
     await _invoke('JoinMeeting', [meetingId, userName]);
   }
 
   Future<void> leaveMeeting(String meetingId) async {
-    await _invoke('LeaveMeeting', [meetingId]);
+    await _invoke('LeaveMeeting', []);
   }
 
   Future<void> sendChatMessage(String meetingId, String content) async {
-    await _invoke('SendChatMessage', [meetingId, content]);
+    debugPrint('=== CHAT SEND ===');
+    await _invoke('SendChatMessage', [content]);
   }
 
   Future<void> raiseHand(String meetingId, bool raised) async {
-    await _invoke('RaiseHand', [meetingId, raised]);
+    await _invoke('RaiseHand', [raised]);
   }
 
   Future<void> sendReaction(String meetingId, String emoji) async {
-    await _invoke('SendReaction', [meetingId, emoji]);
+    debugPrint('=== REACTION SEND ===');
+    await _invoke('SendReaction', [emoji]);
   }
 
   Future<void> toggleAudio(String meetingId, bool enabled) async {
-    await _invoke('ToggleAudio', [meetingId, enabled]);
+    await _invoke('ToggleAudio', [enabled]);
   }
 
   Future<void> toggleVideo(String meetingId, bool enabled) async {
-    await _invoke('ToggleVideo', [meetingId, enabled]);
+    await _invoke('ToggleVideo', [enabled]);
   }
 
   Future<void> startScreenSharing(String meetingId) async {
-    await _invoke('StartScreenSharing', [meetingId]);
+    await _invoke('StartScreenSharing', []);
   }
 
   Future<void> stopScreenSharing(String meetingId) async {
-    await _invoke('StopScreenSharing', [meetingId]);
+    await _invoke('StopScreenSharing', []);
   }
 
   Future<void> muteAllParticipants(String meetingId) async {
-    await _invoke('MuteAllParticipants', [meetingId]);
+    await _invoke('MuteAllParticipants', []);
   }
 
   Future<void> kickParticipant(String meetingId, String participantId) async {
-    await _invoke('KickParticipant', [meetingId, participantId]);
+    await _invoke('KickParticipant', [participantId]);
   }
 
   Future<void> endMeeting(String meetingId) async {
-    await _invoke('EndMeeting', [meetingId]);
+    await _invoke('EndMeeting', []);
   }
 
   Future<void> lockMeeting(String meetingId, bool locked) async {
-    await _invoke('LockMeeting', [meetingId, locked]);
+    await _invoke('LockMeeting', [locked]);
   }
 
   Future<void> toggleChat(String meetingId, bool enabled) async {
-    await _invoke('ToggleChat', [meetingId, enabled]);
+    await _invoke('ToggleChat', [enabled]);
   }
 
   Future<void> notifyProducerCreated(String meetingId, String producerId, String kind, Map<String, dynamic> appData) async {
-    await _invoke('NotifyProducerCreated', [meetingId, producerId, kind, appData]);
+    await _invoke('NotifyProducerCreated', [producerId, kind, appData]);
   }
 
   Future<void> notifyProducerClosed(String meetingId, String producerId, String kind, Map<String, dynamic> appData) async {
-    await _invoke('NotifyProducerClosed', [meetingId, producerId, kind, appData]);
+    await _invoke('NotifyProducerClosed', [producerId, kind, appData]);
   }
 
-  Future<void> _invoke(String methodName, List<Object> args) async {
+  Future<dynamic> _invoke(String methodName, List<Object> args) async {
+    final token = await authRepository.getToken();
+    final userId = token != null && token.isNotEmpty 
+        ? (JwtService().getUserId(token) ?? '') 
+        : '';
+
+    debugPrint('MEETING ID     : $_currentMeetingId');
+    debugPrint('USER ID        : $userId');
+    debugPrint('PARTICIPANT ID : $userId');
+    debugPrint('EMAIL          : $_currentEmail');
+    debugPrint('HUB METHOD NAME: $methodName');
+    debugPrint('PAYLOAD        : $args');
+
     if (_hubConnection == null || _hubConnection!.state != HubConnectionState.Connected) {
-      throw Exception('SignalR connection is not established');
+      final exc = Exception('SignalR connection is not established');
+      debugPrint('=== SIGNALR INVOKE FAILURE ===');
+      debugPrint('HUB METHOD NAME: $methodName');
+      debugPrint('ERROR          : $exc');
+      throw exc;
     }
-    await _hubConnection!.invoke(methodName, args: args);
+
+    try {
+      final response = await _hubConnection!.invoke(methodName, args: args);
+      debugPrint('=== SIGNALR INVOKE SUCCESS ===');
+      debugPrint('HUB METHOD NAME: $methodName');
+      debugPrint('RESPONSE       : $response');
+      return response;
+    } catch (e, s) {
+      debugPrint('=== SIGNALR INVOKE FAILURE ===');
+      debugPrint('HUB METHOD NAME: $methodName');
+      debugPrint('ERROR          : $e');
+      debugPrint('STACKTRACE     : $s');
+      rethrow;
+    }
   }
 
   Future<void> disconnect() async {

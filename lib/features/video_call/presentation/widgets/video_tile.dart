@@ -4,13 +4,15 @@ import 'package:grad_project/features/video_call/data/models/participant_model.d
 
 class VideoTile extends StatefulWidget {
   final ParticipantModel participant;
-  final MediaStream? remoteStream;
+  final MediaStream? stream;
+  final bool isLocal;
   final bool isSpeaking;
 
   const VideoTile({
     super.key,
     required this.participant,
-    this.remoteStream,
+    this.stream,
+    this.isLocal = false,
     this.isSpeaking = false,
   });
 
@@ -35,7 +37,7 @@ class _VideoTileState extends State<VideoTile> {
     await _renderer.initialize();
     if (!mounted) return;
 
-    final streamToApply = _pendingStream ?? widget.remoteStream;
+    final streamToApply = _pendingStream ?? widget.stream;
     _pendingStream = null;
     _renderer.srcObject = streamToApply;
 
@@ -47,11 +49,11 @@ class _VideoTileState extends State<VideoTile> {
   @override
   void didUpdateWidget(covariant VideoTile oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.remoteStream != oldWidget.remoteStream) {
+    if (widget.stream != oldWidget.stream) {
       if (_isRendererInitialized) {
-        _renderer.srcObject = widget.remoteStream;
+        _renderer.srcObject = widget.stream;
       } else {
-        _pendingStream = widget.remoteStream;
+        _pendingStream = widget.stream;
       }
     }
   }
@@ -81,9 +83,10 @@ class _VideoTileState extends State<VideoTile> {
       child: Stack(
         children: [
           // Video Renderer or Initials Placeholder
-          if (widget.participant.isVideoEnabled && widget.remoteStream != null && _isRendererInitialized)
+          if (widget.participant.isVideoEnabled && widget.stream != null && _isRendererInitialized)
             RTCVideoView(
               _renderer,
+              mirror: widget.isLocal,
               objectFit: RTCVideoViewObjectFit.RTCVideoViewObjectFitCover,
             )
           else
@@ -112,7 +115,7 @@ class _VideoTileState extends State<VideoTile> {
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: Text(
-                    widget.participant.name,
+                    widget.isLocal ? 'You' : widget.participant.name,
                     style: const TextStyle(color: Colors.white, fontSize: 12),
                   ),
                 ),

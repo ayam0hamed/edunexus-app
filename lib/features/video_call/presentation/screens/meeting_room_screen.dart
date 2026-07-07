@@ -20,7 +20,6 @@ import 'package:grad_project/features/video_call/presentation/widgets/chat_sheet
 import 'package:grad_project/features/video_call/presentation/widgets/control_bar.dart';
 import 'package:grad_project/features/video_call/presentation/widgets/emoji_reaction_overlay.dart';
 import 'package:grad_project/features/video_call/presentation/widgets/instructor_controls.dart';
-import 'package:grad_project/features/video_call/presentation/widgets/local_video_tile.dart';
 import 'package:grad_project/features/video_call/presentation/widgets/meeting_app_bar.dart';
 import 'package:grad_project/features/video_call/presentation/widgets/participant_list_sheet.dart';
 import 'package:grad_project/features/video_call/presentation/widgets/quiz_sheet.dart';
@@ -81,6 +80,7 @@ class _MeetingRoomScreenState extends State<MeetingRoomScreen> {
           ElevatedButton(
             onPressed: () {
               Navigator.pop(ctx);
+              context.read<VideoCallCubit>().leaveMeeting();
               Navigator.pop(context);
             },
             style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF163D69)),
@@ -135,204 +135,210 @@ class _MeetingRoomScreenState extends State<MeetingRoomScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return MultiBlocProvider(
-      providers: [
-        BlocProvider<MediaCubit>(create: (_) => GetIt.I<MediaCubit>()..initMedia()),
-        BlocProvider<ParticipantsCubit>(create: (_) => GetIt.I<ParticipantsCubit>()..loadParticipants(widget.meetingId)),
-        BlocProvider<ChatCubit>(create: (_) => GetIt.I<ChatCubit>()..loadHistory(widget.meetingId)),
-        BlocProvider<QuizCubit>(create: (_) => GetIt.I<QuizCubit>()),
-        BlocProvider<ReactionsCubit>(create: (_) => GetIt.I<ReactionsCubit>()),
-      ],
-      child: BlocBuilder<VideoCallCubit, VideoCallState>(
-        builder: (context, callState) {
-          if (callState is! VideoCallJoined) {
-            return const Scaffold(
-              backgroundColor: Colors.black,
-              body: Center(child: CircularProgressIndicator(color: Color(0xFF163D69))),
-            );
-          }
-
-          final isInstructor = callState.isInstructor;
-
-          return Scaffold(
+    return BlocBuilder<VideoCallCubit, VideoCallState>(
+      builder: (context, callState) {
+        if (callState is! VideoCallJoined) {
+          return const Scaffold(
             backgroundColor: Colors.black,
-            appBar: MeetingAppBar(
-              title: 'Class Meeting ID: ${widget.meetingId.substring(0, 8)}',
-              isLocked: _isMeetingLocked,
-              onBack: () => _handleLeaveOrEnd(context, isInstructor),
-            ),
-            body: Stack(
-              children: [
-                Column(
-                  children: [
-                    // Video Grid
-                    Expanded(
-                      child: BlocBuilder<MediaCubit, MediaState>(
-                        builder: (context, mediaState) {
-                          return BlocBuilder<ParticipantsCubit, ParticipantsState>(
-                            builder: (context, pState) {
-                              // ── Filter local user out of remote list ──────
-                              // The local user always renders as LocalVideoTile
-                              // at index 0. Without this filter they'd also
-                              // appear as a VideoTile (duplicate card).
-                              final remoteParticipants = pState.participants
-                                  .where((p) => p.id != callState.participantId)
-                                  .toList();
+            body: Center(child: CircularProgressIndicator(color: Color(0xFF163D69))),
+          );
+        }
 
-                              // Total tiles = 1 local + N remote
-                              final totalTiles = remoteParticipants.length + 1;
+        final isInstructor = callState.isInstructor;
 
-                              // ── Read remote streams from state ────────────
-                              // Using sfuService.remoteStreams directly would
-                              // NOT trigger a rebuild when streams arrive.
-                              // remoteStreams is now part of MediaReady state.
-                              final remoteStreams = mediaState is MediaReady
-                                  ? mediaState.remoteStreams
-                                  : const <String, MediaStream>{};
+        return MultiBlocProvider(
+          providers: [
+            BlocProvider<MediaCubit>(create: (_) => GetIt.I<MediaCubit>()..initMedia()),
+            BlocProvider<ParticipantsCubit>(create: (_) => GetIt.I<ParticipantsCubit>()..loadParticipants(
+              widget.meetingId,
+              localId: callState.participantId,
+              localName: callState.userName,
+            )),
+            BlocProvider<ChatCubit>(create: (_) => GetIt.I<ChatCubit>()..loadHistory(widget.meetingId)),
+            BlocProvider<QuizCubit>(create: (_) => GetIt.I<QuizCubit>()),
+            BlocProvider<ReactionsCubit>(create: (_) => GetIt.I<ReactionsCubit>()),
+          ],
+          child: Builder(
+            builder: (context) {
+              return Scaffold(
+                backgroundColor: Colors.black,
+                appBar: MeetingAppBar(
+                  title: 'Class Meeting ID: ${widget.meetingId.substring(0, 8)}',
+                  isLocked: _isMeetingLocked,
+                  onBack: () => _handleLeaveOrEnd(context, isInstructor),
+                ),
+                body: WillPopScope(
+                  onWillPop: () async {
+                    _handleLeaveOrEnd(context, isInstructor);
+                    return false;
+                  },
+                  child: Stack(
+                    children: [
+                      Column(
+                        children: [
+                          // Video Grid
+                          Expanded(
+                            child: BlocBuilder<MediaCubit, MediaState>(
+                              builder: (context, mediaState) {
+                                return BlocBuilder<ParticipantsCubit, ParticipantsState>(
+                                  builder: (context, pState) {
+                                    // ── Read remote streams from state ────────────
+                                    final remoteStreams = mediaState is MediaReady
+                                        ? mediaState.remoteStreams
+                                        : const <String, MediaStream>{};
 
-                              // ── Build local tile ─────────────────────────
-                              Widget localTile = LocalVideoTile(
-                                key: const ValueKey('local'),
-                                localStream: mediaState is MediaReady
-                                    ? mediaState.localStream
-                                    : null,
-                                isVideoEnabled: mediaState is MediaReady
-                                    ? mediaState.isVideoOn
-                                    : false,
-                                isAudioEnabled: mediaState is MediaReady
-                                    ? mediaState.isAudioOn
-                                    : false,
-                                name: callState.userName,
-                              );
-
-                              // ── Build remote tiles ───────────────────────
-                              List<Widget> remoteTiles = remoteParticipants
-                                  .map((p) => VideoTile(
-                                        key: ValueKey(p.id),
+                                    // ── Build all tiles ─────────────────────────
+                                    final allTiles = pState.participants.map((p) {
+                                      final isMe = p.id.toLowerCase() == callState.participantId.toLowerCase();
+                                      final stream = isMe
+                                          ? (mediaState is MediaReady ? mediaState.localStream : null)
+                                          : remoteStreams[p.id.toLowerCase()];
+                                      return VideoTile(
+                                        key: ValueKey(p.id.toLowerCase()),
                                         participant: p,
-                                        remoteStream: remoteStreams[p.id],
-                                      ))
-                                  .toList();
+                                        stream: stream,
+                                        isLocal: isMe,
+                                      );
+                                    }).toList();
 
-                              final allTiles = [localTile, ...remoteTiles];
+                                    // ── Responsive layout ────────────────────────
+                                    return _buildResponsiveGrid(allTiles, allTiles.length);
+                                  },
+                                );
+                              },
+                            ),
+                          ),
 
-                              // ── Responsive layout ────────────────────────
-                              return _buildResponsiveGrid(allTiles, totalTiles);
+                      // Instructor controls
+                      if (isInstructor)
+                        InstructorControls(
+                          isMeetingLocked: _isMeetingLocked,
+                          onMuteAll: () {
+                            context.read<ParticipantsCubit>().muteAll(widget.meetingId);
+                          },
+                          onToggleLock: (lock) async {
+                            await _hubService.lockMeeting(widget.meetingId, lock);
+                            setState(() {
+                              _isMeetingLocked = lock;
+                            });
+                          },
+                          onEndMeeting: () => _handleLeaveOrEnd(context, true),
+                        ),
+
+                      // Control Bar
+                      BlocBuilder<MediaCubit, MediaState>(
+                        builder: (context, mediaState) {
+                          final isAudioOn = mediaState is MediaReady ? mediaState.isAudioOn : false;
+                          final isVideoOn = mediaState is MediaReady ? mediaState.isVideoOn : false;
+                          final isScreenSharing = mediaState is MediaReady ? mediaState.isScreenSharing : false;
+
+                          return BlocBuilder<ReactionsCubit, ReactionsState>(
+                            builder: (context, rState) {
+                              final isHandRaised = rState.raisedHands.contains(callState.participantId.toLowerCase());
+
+                              return BlocBuilder<ChatCubit, ChatState>(
+                                builder: (context, chatState) {
+                                  return ControlBar(
+                                    isAudioOn: isAudioOn,
+                                    isVideoOn: isVideoOn,
+                                    isScreenSharing: isScreenSharing,
+                                    isHandRaised: isHandRaised,
+                                    unreadChatCount: chatState.unreadCount,
+                                    onToggleAudio: () {
+                                      context.read<MediaCubit>().toggleAudio(widget.meetingId);
+                                      context.read<ParticipantsCubit>().updateParticipantAudio(
+                                        callState.participantId,
+                                        !isAudioOn,
+                                      );
+                                    },
+                                    onToggleVideo: () {
+                                      context.read<MediaCubit>().toggleVideo(widget.meetingId);
+                                      context.read<ParticipantsCubit>().updateParticipantVideo(
+                                        callState.participantId,
+                                        !isVideoOn,
+                                      );
+                                    },
+                                    onSwitchCamera: () => context.read<MediaCubit>().switchCamera(),
+                                    onToggleScreenShare: () {
+                                      if (isScreenSharing) {
+                                        context.read<MediaCubit>().stopScreenShare(widget.meetingId);
+                                      } else {
+                                        context.read<MediaCubit>().startScreenShare(widget.meetingId);
+                                      }
+                                    },
+                                    onToggleHandRaise: () {
+                                      context.read<ReactionsCubit>().toggleHandRaise(
+                                            widget.meetingId,
+                                            callState.participantId,
+                                            !isHandRaised,
+                                          );
+                                      context.read<ParticipantsCubit>().updateParticipantHand(
+                                            callState.participantId,
+                                            !isHandRaised,
+                                          );
+                                    },
+                                    onToggleChat: () {
+                                      if (!_isChatEnabled && !isInstructor) {
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          const SnackBar(content: Text('Chat has been disabled by the instructor.')),
+                                        );
+                                        return;
+                                      }
+                                      _showChatSheet(context, callState.meetingId);
+                                    },
+                                    onShowParticipants: () => _showParticipantsSheet(context, callState.meetingId, callState.participantId),
+                                    onLeaveMeeting: () => _handleLeaveOrEnd(context, isInstructor),
+                                  );
+                                },
+                              );
                             },
                           );
                         },
                       ),
-                    ),
-
-                    // Instructor controls
-                    if (isInstructor)
-                      InstructorControls(
-                        isMeetingLocked: _isMeetingLocked,
-                        onMuteAll: () {
-                          context.read<ParticipantsCubit>().muteAll(widget.meetingId);
-                        },
-                        onToggleLock: (lock) async {
-                          await _hubService.lockMeeting(widget.meetingId, lock);
-                          setState(() {
-                            _isMeetingLocked = lock;
-                          });
-                        },
-                        onEndMeeting: () => _handleLeaveOrEnd(context, true),
-                      ),
-
-                    // Control Bar
-                    BlocBuilder<MediaCubit, MediaState>(
-                      builder: (context, mediaState) {
-                        final isAudioOn = mediaState is MediaReady ? mediaState.isAudioOn : false;
-                        final isVideoOn = mediaState is MediaReady ? mediaState.isVideoOn : false;
-                        final isScreenSharing = mediaState is MediaReady ? mediaState.isScreenSharing : false;
-
-                        return BlocBuilder<ReactionsCubit, ReactionsState>(
-                          builder: (context, rState) {
-                            final isHandRaised = rState.raisedHands.contains(callState.participantId);
-
-                            return BlocBuilder<ChatCubit, ChatState>(
-                              builder: (context, chatState) {
-                                return ControlBar(
-                                  isAudioOn: isAudioOn,
-                                  isVideoOn: isVideoOn,
-                                  isScreenSharing: isScreenSharing,
-                                  isHandRaised: isHandRaised,
-                                  unreadChatCount: chatState.unreadCount,
-                                  onToggleAudio: () => context.read<MediaCubit>().toggleAudio(widget.meetingId),
-                                  onToggleVideo: () => context.read<MediaCubit>().toggleVideo(widget.meetingId),
-                                  onSwitchCamera: () => context.read<MediaCubit>().switchCamera(),
-                                  onToggleScreenShare: () {
-                                    if (isScreenSharing) {
-                                      context.read<MediaCubit>().stopScreenShare(widget.meetingId);
-                                    } else {
-                                      context.read<MediaCubit>().startScreenShare(widget.meetingId);
-                                    }
-                                  },
-                                  onToggleHandRaise: () => context.read<ReactionsCubit>().toggleHandRaise(
-                                        widget.meetingId,
-                                        callState.participantId,
-                                        !isHandRaised,
-                                      ),
-                                  onToggleChat: () {
-                                    if (!_isChatEnabled && !isInstructor) {
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        const SnackBar(content: Text('Chat has been disabled by the instructor.')),
-                                      );
-                                      return;
-                                    }
-                                    _showChatSheet(context, callState.meetingId);
-                                  },
-                                  onShowParticipants: () => _showParticipantsSheet(context, callState.meetingId, callState.participantId),
-                                  onLeaveMeeting: () => _handleLeaveOrEnd(context, isInstructor),
-                                );
-                              },
-                            );
-                          },
-                        );
-                      },
-                    ),
-                  ],
-                ),
-
-                // Live animated emojis overlay
-                BlocBuilder<ReactionsCubit, ReactionsState>(
-                  builder: (context, rState) {
-                    return EmojiReactionOverlay(recentReojis: rState.recentReojis);
-                  },
-                ),
-
-                // Floating Reactions picker & Quiz triggers
-                Positioned(
-                  bottom: isInstructor ? 128 : 80,
-                  right: 16,
-                  child: Column(
-                    children: [
-                      // Reactions Trigger Button
-                      FloatingActionButton(
-                        mini: true,
-                        heroTag: 'reactionsBtn',
-                        backgroundColor: const Color(0xFFE56C00),
-                        child: const Icon(Icons.mood, color: Colors.white),
-                        onPressed: () => _showReactionsPicker(context, callState.meetingId),
-                      ),
-                      const SizedBox(height: 8),
-                      // Quiz Sheet Trigger
-                      FloatingActionButton(
-                        mini: true,
-                        heroTag: 'quizBtn',
-                        backgroundColor: const Color(0xFF163D69),
-                        child: const Icon(Icons.quiz, color: Colors.white),
-                        onPressed: () => _showQuizSheet(context, callState.meetingId, isInstructor),
-                      ),
                     ],
                   ),
+
+                  // Live animated emojis overlay
+                  BlocBuilder<ReactionsCubit, ReactionsState>(
+                    builder: (context, rState) {
+                      return EmojiReactionOverlay(recentReojis: rState.recentReojis);
+                    },
+                  ),
+
+                  // Floating Reactions picker & Quiz triggers
+                  Positioned(
+                    bottom: isInstructor ? 128 : 80,
+                    right: 16,
+                    child: Column(
+                      children: [
+                        // Reactions Trigger Button
+                        FloatingActionButton(
+                          mini: true,
+                          heroTag: 'reactionsBtn',
+                          backgroundColor: const Color(0xFFE56C00),
+                          child: const Icon(Icons.mood, color: Colors.white),
+                          onPressed: () => _showReactionsPicker(context, callState.meetingId, callState.userName),
+                        ),
+                        const SizedBox(height: 8),
+                        // Quiz Sheet Trigger
+                        FloatingActionButton(
+                          mini: true,
+                          heroTag: 'quizBtn',
+                          backgroundColor: const Color(0xFF163D69),
+                          child: const Icon(Icons.quiz, color: Colors.white),
+                          onPressed: () => _showQuizSheet(context, callState.meetingId, isInstructor),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
                 ),
-              ],
-            ),
-          );
-        },
-      ),
+              );
+            },
+          ),
+        );
+      },
     );
   }
 
@@ -415,7 +421,7 @@ class _MeetingRoomScreenState extends State<MeetingRoomScreen> {
     );
   }
 
-  void _showReactionsPicker(BuildContext context, String meetingId) {
+  void _showReactionsPicker(BuildContext context, String meetingId, String userName) {
     final reactionsCubit = context.read<ReactionsCubit>();
     showModalBottomSheet(
       context: context,
@@ -434,7 +440,7 @@ class _MeetingRoomScreenState extends State<MeetingRoomScreen> {
               children: ['👍', '👏', '💖', '😂', '🎉', '😮', '❓', '🔥'].map((emoji) {
                 return InkWell(
                   onTap: () {
-                    reactionsCubit.sendReaction(meetingId, emoji);
+                    reactionsCubit.sendReaction(meetingId, emoji, userName);
                     Navigator.pop(ctx);
                   },
                   child: Text(emoji, style: const TextStyle(fontSize: 32)),
