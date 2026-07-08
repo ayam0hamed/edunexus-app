@@ -7,6 +7,7 @@ class VideoTile extends StatefulWidget {
   final MediaStream? stream;
   final bool isLocal;
   final bool isSpeaking;
+  final String role;
 
   const VideoTile({
     super.key,
@@ -14,6 +15,7 @@ class VideoTile extends StatefulWidget {
     this.stream,
     this.isLocal = false,
     this.isSpeaking = false,
+    this.role = 'Participant',
   });
 
   @override
@@ -66,10 +68,6 @@ class _VideoTileState extends State<VideoTile> {
 
   @override
   Widget build(BuildContext context) {
-    final initials = widget.participant.name.isNotEmpty
-        ? widget.participant.name.split(' ').map((e) => e[0]).take(2).join().toUpperCase()
-        : '?';
-
     return Container(
       decoration: BoxDecoration(
         color: Colors.grey.shade900,
@@ -91,12 +89,15 @@ class _VideoTileState extends State<VideoTile> {
             )
           else
             Center(
-              child: CircleAvatar(
-                radius: 36,
-                backgroundColor: const Color(0xFF163D69),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF163D69),
+                  borderRadius: BorderRadius.circular(16),
+                ),
                 child: Text(
-                  initials,
-                  style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold),
+                  widget.role,
+                  style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
                 ),
               ),
             ),

@@ -19,6 +19,7 @@ class VideoCallApiService {
     String meetingName, {
     String userId = '',
     String userName = '',
+    String connectionId = '',
   }) async {
     try {
       final response = await dioClient.dio.post(
@@ -27,7 +28,7 @@ class VideoCallApiService {
           'meetingName': meetingName,
           'userId': userId,
           'userName': userName,
-          'connectionId': '',
+          'connectionId': connectionId,
         },
       );
       if (response.data != null) {
@@ -284,7 +285,7 @@ class VideoCallApiService {
           'appData': appData,
         },
       );
-      return response.data['producerId']?.toString() ?? '';
+      return response.data['producerId']?.toString() ?? response.data['id']?.toString() ?? '';
     } on DioException catch (e) {
       throw ServerException(
         e.response?.data?.toString() ??
@@ -309,7 +310,14 @@ class VideoCallApiService {
           'rtpCapabilities': rtpCapabilities,
         },
       );
-      return (response.data ?? <String, dynamic>{}) as Map<String, dynamic>;
+      final Map<String, dynamic> resData = (response.data ?? <String, dynamic>{}) as Map<String, dynamic>;
+      if (resData.containsKey('consumer') && resData['consumer'] is Map) {
+        return Map<String, dynamic>.from(resData['consumer'] as Map);
+      }
+      if (resData.containsKey('data') && resData['data'] is Map) {
+        return Map<String, dynamic>.from(resData['data'] as Map);
+      }
+      return resData;
     } on DioException catch (e) {
       throw ServerException(
         e.response?.data?.toString() ??

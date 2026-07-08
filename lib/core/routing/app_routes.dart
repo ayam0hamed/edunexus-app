@@ -21,7 +21,7 @@ class AppRoutes {
   static const String newPassword = '/new_password';
   static const String languagePreference = '/lang';
   static const String instructorScreen = '/instructor_screen';
-  static const String scheduleMeeting = '/schedule_meeting';
+  static const String meetingsScreen = '/meetings_screen';
   static const String meetingLobby = '/meeting_lobby';
   static const String meetingRoom = '/meeting_room';
 }

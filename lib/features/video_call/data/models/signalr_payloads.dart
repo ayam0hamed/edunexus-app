@@ -19,12 +19,12 @@ class ParticipantJoinedPayload extends Equatable {
 
   factory ParticipantJoinedPayload.fromJson(Map<String, dynamic> json) {
     return ParticipantJoinedPayload(
-      participantId: json['participantId']?.toString() ?? json['id']?.toString() ?? '',
-      fullName: json['fullName']?.toString() ?? json['name']?.toString() ?? json['userName']?.toString() ?? 'Unknown',
-      isAudioEnabled: json['isAudioEnabled'] as bool? ?? true,
-      isVideoEnabled: json['isVideoEnabled'] as bool? ?? true,
-      isScreenSharing: json['isScreenSharing'] as bool? ?? false,
-      isHandRaised: json['isHandRaised'] as bool? ?? false,
+      participantId: json['participantId']?.toString() ?? json['ParticipantId']?.toString() ?? json['id']?.toString() ?? json['Id']?.toString() ?? '',
+      fullName: json['fullName']?.toString() ?? json['FullName']?.toString() ?? json['name']?.toString() ?? json['Name']?.toString() ?? json['userName']?.toString() ?? json['UserName']?.toString() ?? 'Unknown',
+      isAudioEnabled: json['isAudioEnabled'] as bool? ?? json['IsAudioEnabled'] as bool? ?? true,
+      isVideoEnabled: json['isVideoEnabled'] as bool? ?? json['IsVideoEnabled'] as bool? ?? true,
+      isScreenSharing: json['isScreenSharing'] as bool? ?? json['IsScreenSharing'] as bool? ?? false,
+      isHandRaised: json['isHandRaised'] as bool? ?? json['IsHandRaised'] as bool? ?? false,
     );
   }
 
@@ -47,8 +47,8 @@ class MediaTogglePayload extends Equatable {
 
   factory MediaTogglePayload.fromJson(Map<String, dynamic> json) {
     return MediaTogglePayload(
-      participantId: json['participantId']?.toString() ?? '',
-      enabled: json['enabled'] as bool? ?? false,
+      participantId: json['participantId']?.toString() ?? json['ParticipantId']?.toString() ?? '',
+      enabled: json['enabled'] as bool? ?? json['Enabled'] as bool? ?? false,
     );
   }
 
@@ -69,9 +69,9 @@ class HandRaisedPayload extends Equatable {
 
   factory HandRaisedPayload.fromJson(Map<String, dynamic> json) {
     return HandRaisedPayload(
-      participantId: json['participantId']?.toString() ?? json['id']?.toString() ?? '',
-      fullName: json['fullName']?.toString() ?? json['name']?.toString() ?? json['userName']?.toString() ?? 'Unknown',
-      raised: json['raised'] as bool? ?? json['isHandRaised'] as bool? ?? false,
+      participantId: json['participantId']?.toString() ?? json['ParticipantId']?.toString() ?? json['id']?.toString() ?? json['Id']?.toString() ?? '',
+      fullName: json['fullName']?.toString() ?? json['FullName']?.toString() ?? json['name']?.toString() ?? json['Name']?.toString() ?? json['userName']?.toString() ?? json['UserName']?.toString() ?? 'Unknown',
+      raised: json['raised'] as bool? ?? json['Raised'] as bool? ?? json['isHandRaised'] as bool? ?? json['IsHandRaised'] as bool? ?? false,
     );
   }
 
@@ -87,8 +87,8 @@ class ReactionPayload extends Equatable {
 
   factory ReactionPayload.fromJson(Map<String, dynamic> json) {
     return ReactionPayload(
-      emoji: json['emoji']?.toString() ?? '',
-      fullName: json['fullName']?.toString() ?? json['userName']?.toString() ?? json['senderDisplayName']?.toString() ?? 'Unknown',
+      emoji: json['emoji']?.toString() ?? json['Emoji']?.toString() ?? '',
+      fullName: json['fullName']?.toString() ?? json['FullName']?.toString() ?? json['userName']?.toString() ?? json['UserName']?.toString() ?? json['senderDisplayName']?.toString() ?? 'Unknown',
     );
   }
 
@@ -104,8 +104,8 @@ class KickedPayload extends Equatable {
 
   factory KickedPayload.fromJson(Map<String, dynamic> json) {
     return KickedPayload(
-      participantId: json['participantId']?.toString() ?? '',
-      fullName: json['fullName']?.toString() ?? '',
+      participantId: json['participantId']?.toString() ?? json['ParticipantId']?.toString() ?? '',
+      fullName: json['fullName']?.toString() ?? json['FullName']?.toString() ?? '',
     );
   }
 
@@ -121,8 +121,8 @@ class LockTogglePayload extends Equatable {
 
   factory LockTogglePayload.fromJson(Map<String, dynamic> json) {
     return LockTogglePayload(
-      locked: json['locked'] as bool? ?? false,
-      toggledBy: json['toggledBy']?.toString() ?? '',
+      locked: json['locked'] as bool? ?? json['Locked'] as bool? ?? false,
+      toggledBy: json['toggledBy']?.toString() ?? json['ToggledBy']?.toString() ?? '',
     );
   }
 
@@ -138,8 +138,8 @@ class ChatTogglePayload extends Equatable {
 
   factory ChatTogglePayload.fromJson(Map<String, dynamic> json) {
     return ChatTogglePayload(
-      enabled: json['enabled'] as bool? ?? false,
-      toggledBy: json['toggledBy']?.toString() ?? '',
+      enabled: json['enabled'] as bool? ?? json['Enabled'] as bool? ?? false,
+      toggledBy: json['toggledBy']?.toString() ?? json['ToggledBy']?.toString() ?? '',
     );
   }
 
@@ -164,11 +164,11 @@ class ProducerCreatedPayload extends Equatable {
 
   factory ProducerCreatedPayload.fromJson(Map<String, dynamic> json) {
     return ProducerCreatedPayload(
-      producerId: json['producerId']?.toString() ?? '',
-      participantId: json['participantId']?.toString() ?? '',
-      kind: json['kind']?.toString() ?? 'video',
-      appData: (json['appData'] ?? <String, dynamic>{}) as Map<String, dynamic>,
-      fullName: json['fullName']?.toString() ?? '',
+      producerId: json['producerId']?.toString() ?? json['ProducerId']?.toString() ?? '',
+      participantId: json['participantId']?.toString() ?? json['ParticipantId']?.toString() ?? '',
+      kind: json['kind']?.toString() ?? json['Kind']?.toString() ?? 'video',
+      appData: (json['appData'] ?? json['AppData'] ?? <String, dynamic>{}) as Map<String, dynamic>,
+      fullName: json['fullName']?.toString() ?? json['FullName']?.toString() ?? '',
     );
   }
 
@@ -191,10 +191,10 @@ class ProducerClosedPayload extends Equatable {
 
   factory ProducerClosedPayload.fromJson(Map<String, dynamic> json) {
     return ProducerClosedPayload(
-      producerId: json['producerId']?.toString() ?? '',
-      participantId: json['participantId']?.toString() ?? '',
-      kind: json['kind']?.toString() ?? 'video',
-      appData: (json['appData'] ?? <String, dynamic>{}) as Map<String, dynamic>,
+      producerId: json['producerId']?.toString() ?? json['ProducerId']?.toString() ?? '',
+      participantId: json['participantId']?.toString() ?? json['ParticipantId']?.toString() ?? '',
+      kind: json['kind']?.toString() ?? json['Kind']?.toString() ?? 'video',
+      appData: (json['appData'] ?? json['AppData'] ?? <String, dynamic>{}) as Map<String, dynamic>,
     );
   }
 

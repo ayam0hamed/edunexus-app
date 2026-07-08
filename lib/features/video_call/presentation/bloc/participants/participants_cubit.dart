@@ -42,18 +42,22 @@ class ParticipantsCubit extends Cubit<ParticipantsState> {
           isVideoEnabled: true,
         ));
       }
-      emit(state.copyWith(participants: list));
+      if (!isClosed) {
+        emit(state.copyWith(participants: list));
+      }
     } catch (e) {
       debugPrint('ParticipantsCubit: Failed to load participants: $e');
       // Set at least local participant in case API fails
-      emit(state.copyWith(participants: [
-        ParticipantModel(
-          id: _localId!,
-          name: _localName!,
-          isAudioEnabled: true,
-          isVideoEnabled: true,
-        )
-      ]));
+      if (!isClosed) {
+        emit(state.copyWith(participants: [
+          ParticipantModel(
+            id: _localId!,
+            name: _localName!,
+            isAudioEnabled: true,
+            isVideoEnabled: true,
+          )
+        ]));
+      }
     }
   }
 

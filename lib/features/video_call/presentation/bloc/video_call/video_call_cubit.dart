@@ -26,18 +26,23 @@ class VideoCallCubit extends Cubit<VideoCallState> {
     String name,
     String userId,
     String userName,
+    String userEmail,
   ) async {
     emit(const VideoCallLoading());
     try {
+      await hubService.connect();
+      final connectionId = hubService.connectionId ?? '';
+
       final meeting = await repository.createMeeting(
         name,
         userId: userId,
         userName: userName,
+        connectionId: connectionId,
       );
       debugPrint(
         '[Meeting] Created meeting: meetingId=${meeting.id}, name=$name',
       );
-      await joinMeeting(meeting.id, userName, isInstructor: true);
+      await joinMeeting(meeting.id, userEmail, isInstructor: true);
     } catch (e) {
       emit(VideoCallError('Failed to create meeting: $e'));
     }

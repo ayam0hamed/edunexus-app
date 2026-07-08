@@ -22,16 +22,19 @@ class ParticipantModel extends Equatable {
 
   factory ParticipantModel.fromJson(Map<String, dynamic> json) {
     return ParticipantModel(
-      id: json['id']?.toString() ?? json['participantId']?.toString() ?? '',
+      id: json['id']?.toString() ?? json['Id']?.toString() ?? json['participantId']?.toString() ?? json['ParticipantId']?.toString() ?? '',
       name: json['name']?.toString() ??
+          json['Name']?.toString() ??
           json['fullName']?.toString() ??
+          json['FullName']?.toString() ??
           json['userName']?.toString() ??
+          json['UserName']?.toString() ??
           '',
-      isAudioEnabled: json['isAudioEnabled'] as bool? ?? true,
-      isVideoEnabled: json['isVideoEnabled'] as bool? ?? true,
-      isScreenSharing: json['isScreenSharing'] as bool? ?? false,
-      isHandRaised: json['isHandRaised'] as bool? ?? false,
-      joinedAt: json['joinedAt']?.toString(),
+      isAudioEnabled: json['isAudioEnabled'] as bool? ?? json['IsAudioEnabled'] as bool? ?? true,
+      isVideoEnabled: json['isVideoEnabled'] as bool? ?? json['IsVideoEnabled'] as bool? ?? true,
+      isScreenSharing: json['isScreenSharing'] as bool? ?? json['IsScreenSharing'] as bool? ?? false,
+      isHandRaised: json['isHandRaised'] as bool? ?? json['IsHandRaised'] as bool? ?? false,
+      joinedAt: json['joinedAt']?.toString() ?? json['JoinedAt']?.toString(),
     );
   }
 

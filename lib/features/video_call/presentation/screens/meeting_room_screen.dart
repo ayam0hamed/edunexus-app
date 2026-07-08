@@ -70,25 +70,16 @@ class _MeetingRoomScreenState extends State<MeetingRoomScreen> {
 
   void _showEndDialog(String title, String message) {
     if (!mounted) return;
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => AlertDialog(
-        title: Text(title),
+    
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
         content: Text(message),
-        actions: [
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(ctx);
-              context.read<VideoCallCubit>().leaveMeeting();
-              Navigator.pop(context);
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF163D69)),
-            child: const Text('OK', style: TextStyle(color: Colors.white)),
-          )
-        ],
+        duration: const Duration(seconds: 4),
       ),
     );
+
+    context.read<VideoCallCubit>().leaveMeeting();
+    Navigator.pop(context);
   }
 
   @override
@@ -164,6 +155,7 @@ class _MeetingRoomScreenState extends State<MeetingRoomScreen> {
                 backgroundColor: Colors.black,
                 appBar: MeetingAppBar(
                   title: 'Class Meeting ID: ${widget.meetingId.substring(0, 8)}',
+                  meetingId: widget.meetingId,
                   isLocked: _isMeetingLocked,
                   onBack: () => _handleLeaveOrEnd(context, isInstructor),
                 ),
@@ -193,11 +185,17 @@ class _MeetingRoomScreenState extends State<MeetingRoomScreen> {
                                       final stream = isMe
                                           ? (mediaState is MediaReady ? mediaState.localStream : null)
                                           : remoteStreams[p.id.toLowerCase()];
+                                          
+                                      final String role = isMe 
+                                          ? (isInstructor ? 'Instructor' : 'Student') 
+                                          : (isInstructor ? 'Student' : 'Participant');
+                                          
                                       return VideoTile(
                                         key: ValueKey(p.id.toLowerCase()),
                                         participant: p,
                                         stream: stream,
                                         isLocal: isMe,
+                                        role: role,
                                       );
                                     }).toList();
 

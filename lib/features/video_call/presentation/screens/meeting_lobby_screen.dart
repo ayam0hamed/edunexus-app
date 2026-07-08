@@ -26,7 +26,8 @@ class _MeetingLobbyScreenState extends State<MeetingLobbyScreen> {
   bool _isLoading = true;
   String _errorMessage = '';
   
-  String _userName = 'Guest';
+  String _userName = 'User';
+  String _userEmail = '';
   String _userId = '';
   bool _isInstructor = false;
 
@@ -48,6 +49,7 @@ class _MeetingLobbyScreenState extends State<MeetingLobbyScreen> {
         final decoded = _jwtService.tryDecode(token);
         _userId = decoded['UserId']?.toString() ?? '';
         _userName = decoded['fullName']?.toString() ?? decoded['userName']?.toString() ?? 'User';
+        _userEmail = decoded['email']?.toString() ?? decoded['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress']?.toString() ?? '';
         final role = _jwtService.getRole(token);
         _isInstructor = role == 'Instructor';
       }
@@ -107,7 +109,7 @@ class _MeetingLobbyScreenState extends State<MeetingLobbyScreen> {
 
     if (result != null && result.trim().isNotEmpty) {
       if (!mounted) return;
-      context.read<VideoCallCubit>().createMeeting(result.trim(), _userId, _userName);
+      context.read<VideoCallCubit>().createMeeting(result.trim(), _userId, _userName, _userEmail);
     }
   }
 
@@ -121,7 +123,6 @@ class _MeetingLobbyScreenState extends State<MeetingLobbyScreen> {
             AppRoutes.meetingRoom,
             arguments: {
               'meetingId': state.meetingId,
-              'cubit': context.read<VideoCallCubit>(),
             },
           );
         } else if (state is VideoCallError) {
@@ -264,7 +265,7 @@ class _MeetingLobbyScreenState extends State<MeetingLobbyScreen> {
                                     onPressed: () {
                                       context.read<VideoCallCubit>().joinMeeting(
                                             meeting.id,
-                                            _userName,
+                                            _userEmail,
                                             isInstructor: _isInstructor,
                                           );
                                     },

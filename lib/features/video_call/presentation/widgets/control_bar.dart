@@ -38,9 +38,13 @@ class ControlBar extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
       color: Colors.grey.shade900,
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        children: [
+      width: double.infinity,
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Wrap(
+          spacing: 16,
+          alignment: WrapAlignment.center,
+          children: [
           // Audio Toggle
           _controlButton(
             icon: isAudioOn ? Icons.mic : Icons.mic_off,
@@ -129,6 +133,7 @@ class ControlBar extends StatelessWidget {
             tooltip: 'Leave Call',
           ),
         ],
+      ),
       ),
     );
   }

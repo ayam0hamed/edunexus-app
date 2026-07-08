@@ -21,87 +21,7 @@ class MeetingRepositoryImpl implements MeetingRepository {
     required this.instructorRepository,
   });
 
-  @override
-  Future<MeetingModel> createMeeting({
-    required String meetingName,
-    required String courseTitle,
-    required String date,
-    required String time,
-    required String duration,
-    required String maxAttendees,
-    required String userId,
-    required String userName,
-  }) async {
-    try {
-      final requestBody = {
-        'meetingName': meetingName,
-        'userId': userId,
-        'userName': userName,
-        'connectionId': '',
-      };
-
-      debugPrint('MeetingRepositoryImpl: Creating meeting on backend with data: $requestBody');
-
-      final response = await dioClient.dio.post(
-        '/api/Meetings/create',
-        data: requestBody,
-      );
-
-      final responseData = response.data;
-      if (responseData == null) {
-        throw const ServerException('Empty response received from server');
-      }
-
-      if (responseData is Map<String, dynamic>) {
-        // Debug: surface the raw backend response (Issue 7)
-        debugPrint('[Meeting] Received from backend: $responseData');
-
-        // Parse the meeting response
-        final createdMeetingBase = MeetingModel.fromJson(responseData);
-
-        // Enrich the returned meeting with local details from UI input
-        // (e.g. course title, duration, maxAttendees, date, time).
-        // The backend-assigned ID is preserved from createdMeetingBase.
-        final enrichedMeeting = createdMeetingBase.copyWith(
-          courseTitle: courseTitle.isNotEmpty ? courseTitle : 'No course',
-          duration: duration.isNotEmpty ? '$duration minutes' : '90 minutes',
-          date: date,
-          time: time,
-          maxAttendees: maxAttendees,
-        );
-
-        _meetings.insert(0, enrichedMeeting);
-
-        // Debug: confirm the ID and active status stored in memory (Issue 7)
-        debugPrint(
-          '[Meeting] Meeting created: '
-          'meetingId=${enrichedMeeting.id}, '
-          'isActive=${enrichedMeeting.isActive}',
-        );
-
-        return enrichedMeeting;
-      } else {
-        throw const ServerException('Invalid create meeting response format');
-      }
-    } on DioException catch (e) {
-      debugPrint('MeetingRepositoryImpl: DioException: ${e.message}');
-      _handleDioException(e);
-    } on SocketException catch (e) {
-      debugPrint('MeetingRepositoryImpl: SocketException: ${e.message}');
-      throw NetworkFailure('No Internet connection: ${e.message}');
-    } on TimeoutException catch (e) {
-      debugPrint('MeetingRepositoryImpl: TimeoutException: ${e.message}');
-      throw NetworkFailure('Connection timed out: ${e.message}');
-    } on AppException catch (e) {
-      if (e is UnauthorizedException) {
-        throw UnauthorizedFailure(e.message);
-      }
-      throw ServerFailure(e.message);
-    } catch (e) {
-      debugPrint('MeetingRepositoryImpl: UnknownException: ${e.toString()}');
-      throw UnknownFailure('An unexpected error occurred: ${e.toString()}');
-    }
-  }
+  // createMeeting has been removed as part of the Schedule Meeting feature cleanup.
 
   @override
   Future<int> getStudentsCount() async {
@@ -177,10 +97,7 @@ class MeetingRepositoryImpl implements MeetingRepository {
     debugPrint('MeetingRepositoryImpl: deleteMeeting is currently pending backend implementation');
   }
 
-  @override
-  Future<void> editMeeting(MeetingModel meeting) async {
-    debugPrint('MeetingRepositoryImpl: editMeeting is currently pending backend implementation');
-  }
+  // editMeeting has been removed as part of the Schedule Meeting feature cleanup.
 
   @override
   Future<void> uploadPdf(String meetingId, String filePath) async {

@@ -44,10 +44,7 @@ class _StudentScreenState extends State<StudentScreen> {
       Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (_) => BlocProvider.value(
-            value: cubit,
-            child: MeetingRoomScreen(meetingId: meetingId.trim()),
-          ),
+          builder: (_) => MeetingRoomScreen(meetingId: meetingId.trim()),
         ),
       );
     } else if (cubit.state is VideoCallError) {
@@ -216,10 +213,19 @@ class _StudentScreenState extends State<StudentScreen> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.start,
                         children: [
-                          const CircleAvatar(
-                            radius: 25,
-                            backgroundImage: AssetImage(
-                              'assets/images/john.jpg',
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFDAF3FF),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: const Text(
+                              'Student',
+                              style: TextStyle(
+                                color: Color(0xFF163D69),
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                           ),
                           const SizedBox(width: 12),

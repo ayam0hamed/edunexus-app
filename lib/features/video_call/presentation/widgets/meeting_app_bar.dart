@@ -1,14 +1,17 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 class MeetingAppBar extends StatefulWidget implements PreferredSizeWidget {
   final String title;
+  final String meetingId;
   final bool isLocked;
   final VoidCallback onBack;
 
   const MeetingAppBar({
     super.key,
     required this.title,
+    required this.meetingId,
     required this.isLocked,
     required this.onBack,
   });
@@ -63,10 +66,27 @@ class _MeetingAppBarState extends State<MeetingAppBar> {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Text(
-                  widget.title,
-                  style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold),
-                  overflow: TextOverflow.ellipsis,
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        widget.title,
+                        style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.copy, color: Colors.white70, size: 16),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                      onPressed: () {
+                        Clipboard.setData(ClipboardData(text: widget.meetingId));
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Meeting ID copied to clipboard'), duration: Duration(seconds: 2)),
+                        );
+                      },
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 2),
                 Text(

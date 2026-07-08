@@ -6,11 +6,10 @@ class ProfileScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: const Color(0xFFF5F7FA), // Light background
       appBar: AppBar(
         backgroundColor: Colors.white,
-        shadowColor: Color.fromARGB(255, 94, 92, 95),
-
+        shadowColor: const Color.fromARGB(255, 94, 92, 95),
         elevation: 1,
         leading: IconButton(
           icon: const Icon(
@@ -57,142 +56,160 @@ class ProfileScreen extends StatelessWidget {
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // User Profile Header Card
-            Container(
-              height: 62,
-              width: 352,
-              padding: const EdgeInsets.only(left: 12),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF0F0F0),
-                borderRadius: BorderRadius.circular(10),
+        child: Container(
+          padding: const EdgeInsets.all(24.0),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
               ),
-              child: Row(
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Row 1: First Name & Second Name
+              Row(
                 children: [
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(25),
-                    child: CircleAvatar(
-                      maxRadius: 20,
-                      child: Image.asset(
-                        'assets/images/john.jpg',
-                        width: 60,
-                        height: 60,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) => Container(
-                          width: 60,
-                          height: 60,
-                          color: Colors.grey[300],
-                          child: const Icon(Icons.person),
-                        ),
-                      ),
+                  Expanded(child: _buildField('First Name', 'Mahmoud')),
+                  const SizedBox(width: 16),
+                  Expanded(child: _buildField('Second Name', 'Tarek')),
+                ],
+              ),
+              const SizedBox(height: 16),
+
+              // Row 2: Third Name & Last Name
+              Row(
+                children: [
+                  Expanded(child: _buildField('Third Name', 'El')),
+                  const SizedBox(width: 16),
+                  Expanded(child: _buildField('Last Name', 'Masry')),
+                ],
+              ),
+              const SizedBox(height: 16),
+
+              // SSN
+              _buildField(
+                'SSN',
+                '20000000000001',
+                readOnly: true,
+                helperText: 'SSN cannot be changed',
+              ),
+              const SizedBox(height: 16),
+
+              // Phone Number
+              _buildField('Phone Number', '+20-111-100-0001'),
+              const SizedBox(height: 16),
+
+              // Email
+              _buildField('Email', 'm.elmasry@cu.edu.eg'),
+              const SizedBox(height: 32),
+
+              // Save Changes Button
+              Container(
+                width: double.infinity,
+                height: 50,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(8),
+                  gradient: const LinearGradient(
+                    colors: [
+                      Color(0xFF324158), // Dark Blue
+                      Color(0xFFD26F28), // Orange
+                    ],
+                    begin: Alignment.centerLeft,
+                    end: Alignment.centerRight,
+                  ),
+                ),
+                child: ElevatedButton(
+                  onPressed: () {},
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.transparent,
+                    shadowColor: Colors.transparent,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
                     ),
                   ),
-                  const SizedBox(width: 16),
-                  const Text(
-                    'John Games',
+                  child: const Text(
+                    'Save Changes',
                     style: TextStyle(
+                      color: Colors.white,
                       fontSize: 16,
-                      fontWeight: FontWeight.w500,
+                      fontWeight: FontWeight.bold,
                       fontFamily: "poppins",
                     ),
                   ),
-                ],
+                ),
               ),
-            ),
-            const SizedBox(height: 24),
-
-            // Name Row
-            Row(
-              children: [
-                Expanded(child: _buildField('First Name', 'John')),
-                const SizedBox(width: 16),
-                Expanded(child: _buildField('Last Name', 'Games')),
-              ],
-            ),
-            const SizedBox(height: 20),
-
-            // SSN
-            _buildField('SSN', '304010111234678'),
-            const SizedBox(height: 20),
-
-            // Level
-            _buildField('Level', '4'),
-            const SizedBox(height: 20),
-
-            // Organization
-            _buildField(
-              'Organization',
-              'Faculty of Computer and Information — Beni-Suef University',
-              maxLines: 2,
-            ),
-            const SizedBox(height: 24),
-
-            // Related Links Section
-            const Text(
-              'Related Links',
-              style: TextStyle(
-                color: Color(0xFF003366),
-                fontWeight: FontWeight.bold,
-                fontSize: 14,
-                fontFamily: "poppins",
-              ),
-            ),
-            const SizedBox(height: 16),
-
-            // Google Link
-            _buildField('Google', 'johngames234@gmail.com'),
-            const SizedBox(height: 20),
-
-            // Microsoft Link
-            _buildField('Microsoft', 'johngames890@outlook.com'),
-            const SizedBox(height: 40),
-          ],
+            ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildField(String label, String value, {int maxLines = 1}) {
+  Widget _buildField(
+    String label,
+    String value, {
+    int maxLines = 1,
+    bool readOnly = false,
+    String? helperText,
+  }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           label,
           style: const TextStyle(
-            fontWeight: FontWeight.w500,
+            fontWeight: FontWeight.w600,
             fontSize: 14,
-            color: Colors.black87,
+            color: Color(0xFF4A5568),
             fontFamily: "poppins",
           ),
         ),
         const SizedBox(height: 8),
-        Container(
-          color: Colors.grey[200],
-          child: TextField(
-            style: TextStyle(
-              fontSize: 16,
-              color: Colors.black.withOpacity(0.6),
+        TextField(
+          style: TextStyle(
+            fontSize: 16,
+            color: readOnly ? Colors.grey[600] : Colors.black87,
+          ),
+          controller: TextEditingController(text: value),
+          maxLines: maxLines,
+          readOnly: readOnly,
+          decoration: InputDecoration(
+            filled: true,
+            fillColor: readOnly ? const Color(0xFFF0F0F0) : const Color(0xFFFAFAFA),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 14,
             ),
-            controller: TextEditingController(text: value),
-            maxLines: maxLines,
-            decoration: InputDecoration(
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 12,
-                vertical: 8,
-              ),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-                borderSide: BorderSide(color: Color(0xFFB3B3B3)),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-                borderSide: BorderSide(color: Color(0xFFB3B3B3)),
-              ),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: BorderSide(color: Colors.grey.shade300),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: BorderSide(color: Colors.grey.shade300),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: BorderSide(color: Colors.grey.shade400),
             ),
           ),
         ),
+        if (helperText != null) ...[
+          const SizedBox(height: 4),
+          Text(
+            helperText,
+            style: const TextStyle(
+              color: Colors.grey,
+              fontSize: 12,
+            ),
+          ),
+        ],
       ],
     );
   }

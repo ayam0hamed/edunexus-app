@@ -22,7 +22,7 @@ class ChatCubit extends Cubit<ChatState> {
   Future<void> loadHistory(String meetingId) async {
     try {
       final messages = await apiService.getChatHistory(meetingId);
-      emit(state.copyWith(messages: messages));
+      if (!isClosed) emit(state.copyWith(messages: messages));
     } catch (e) {
       debugPrint('ChatCubit: Failed to load chat history: $e');
     }

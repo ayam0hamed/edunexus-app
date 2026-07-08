@@ -23,13 +23,13 @@ import 'package:grad_project/features/settings/report.dart';
 import 'package:grad_project/features/settings/settings.dart';
 import 'package:grad_project/features/settings/support.dart';
 import 'package:grad_project/features/instructor_home/presentation/screens/instructor_screen.dart';
-import 'package:grad_project/features/meetings/presentation/screens/schedule_meeting_screen.dart';
-import 'package:grad_project/features/meetings/presentation/bloc/meeting_bloc.dart';
-import 'package:grad_project/features/meetings/presentation/bloc/meeting_event.dart';
+import 'package:grad_project/features/instructor_home/presentation/screens/meetings_screen.dart';
 import 'package:grad_project/features/video_call/presentation/screens/meeting_lobby_screen.dart';
 import 'package:grad_project/features/video_call/presentation/screens/meeting_room_screen.dart';
 import 'package:grad_project/features/video_call/presentation/bloc/video_call/video_call_cubit.dart';
 import 'features/onboarding/screens/splash_screen.dart';
+import 'package:grad_project/features/instructor_home/presentation/bloc/instructor_bloc.dart';
+import 'package:grad_project/features/instructor_home/presentation/bloc/instructor_event.dart';
 import 'features/onboarding/screens/Features.dart';
 import 'features/onboarding/screens/how_itworks.dart';
 import 'features/onboarding/screens/aboutus.dart';
@@ -108,8 +108,18 @@ class _EduNexusAppState extends State<EduNexusApp> {
   @override
   Widget build(BuildContext context) {
     debugPrintRebuildDirtyWidgets = true;
-    return BlocProvider<AuthBloc>(
-      create: (_) => GetIt.I<AuthBloc>()..add(const AppStarted()),
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider<AuthBloc>(
+          create: (_) => GetIt.I<AuthBloc>()..add(const AppStarted()),
+        ),
+        BlocProvider<VideoCallCubit>(
+          create: (_) => GetIt.I<VideoCallCubit>(),
+        ),
+        BlocProvider<InstructorBloc>(
+          create: (_) => GetIt.I<InstructorBloc>()..add(const LoadInstructorProfileEvent()),
+        ),
+      ],
       child: MaterialApp(
         navigatorKey: _navigatorKey,
         title: 'EduNexus Platform',
@@ -143,22 +153,12 @@ class _EduNexusAppState extends State<EduNexusApp> {
           AppRoutes.forgetPassword: (context) => const ForgetPassword(),
           AppRoutes.checkEmail: (context) => const CheckEmailScreen(),
           AppRoutes.newPassword: (context) => const NewPassword(),
-          AppRoutes.scheduleMeeting: (context) => BlocProvider<MeetingBloc>(
-            create: (_) => GetIt.I<MeetingBloc>()..add(const LoadMeetingsEvent()),
-            child: const ScheduleMeetingScreen(),
-          ),
-          AppRoutes.meetingLobby: (context) => BlocProvider<VideoCallCubit>(
-            create: (_) => GetIt.I<VideoCallCubit>(),
-            child: const MeetingLobbyScreen(),
-          ),
+          AppRoutes.meetingsScreen: (context) => const MeetingsScreen(),
+          AppRoutes.meetingLobby: (context) => const MeetingLobbyScreen(),
           AppRoutes.meetingRoom: (context) {
             final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
             final meetingId = args['meetingId'] as String;
-            final cubit = args['cubit'] as VideoCallCubit;
-            return BlocProvider<VideoCallCubit>.value(
-              value: cubit,
-              child: MeetingRoomScreen(meetingId: meetingId),
-            );
+            return MeetingRoomScreen(meetingId: meetingId);
           },
         },
       ),

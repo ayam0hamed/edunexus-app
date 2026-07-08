@@ -13,7 +13,6 @@ class MeetingBloc extends Bloc<MeetingEvent, MeetingState> {
 
   MeetingBloc({required this.meetingRepository}) : super(const MeetingInitial()) {
     on<LoadMeetingsEvent>(_onLoadMeetings);
-    on<CreateMeetingEvent>(_onCreateMeeting);
     on<RefreshMeetingsEvent>(_onRefreshMeetings);
   }
 
@@ -66,55 +65,7 @@ class MeetingBloc extends Bloc<MeetingEvent, MeetingState> {
     }
   }
 
-  Future<void> _onCreateMeeting(
-    CreateMeetingEvent event,
-    Emitter<MeetingState> emit,
-  ) async {
-    final currentState = state;
-    String instructorId = '';
-    String instructorName = '';
-
-    if (currentState is MeetingLoaded) {
-      instructorId = currentState.instructorId;
-      instructorName = currentState.instructorName;
-    } else {
-      // Fetch profile if not loaded
-      try {
-        final profile = await meetingRepository.getProfile();
-        instructorId = profile['id']?.toString() ?? '';
-        instructorName = profile['fullName']?.toString() ?? '';
-      } catch (e) {
-        emit(MeetingError('Could not fetch profile before creating meeting: ${e.toString()}'));
-        return;
-      }
-    }
-
-    emit(const MeetingLoading());
-
-    try {
-      debugPrint('MeetingBloc: Creating meeting named: ${event.meetingTitle}');
-      final newMeeting = await meetingRepository.createMeeting(
-        meetingName: event.meetingTitle,
-        courseTitle: event.courseTitle,
-        date: event.date,
-        time: event.time,
-        duration: event.duration,
-        maxAttendees: event.maxAttendees,
-        userId: instructorId,
-        userName: instructorName,
-      );
-
-      // Add to local cache list in bloc in case dynamic cast fails
-      if (!_cachedMeetings.contains(newMeeting)) {
-        _cachedMeetings.insert(0, newMeeting);
-      }
-
-      emit(const MeetingSuccess('Meeting created successfully.'));
-    } catch (e) {
-      debugPrint('MeetingBloc: Failed to create meeting: ${e.toString()}');
-      emit(MeetingError(e.toString()));
-    }
-  }
+  // _onCreateMeeting has been removed as part of the Schedule Meeting feature cleanup.
 
   Future<void> _onRefreshMeetings(
     RefreshMeetingsEvent event,

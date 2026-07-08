@@ -42,26 +42,6 @@ class SettingsScreen extends StatelessWidget {
             fontFamily: 'Poppins',
           ),
         ),
-        leading: IconButton(
-          icon: const Icon(
-            Icons.arrow_back_ios,
-            color: Color(0xFF003366),
-            size: 20,
-          ),
-          onPressed: () {
-            Navigator.pop(context);
-          },
-        ),
-        actions: const [
-          Padding(
-            padding: EdgeInsets.only(right: 25),
-            child: CircleAvatar(
-              backgroundImage: AssetImage(
-                'assets/images/john.jpg',
-              ), // غيرها حسب عندك
-            ),
-          ),
-        ],
       ),
       body: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16),

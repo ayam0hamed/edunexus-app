@@ -12,9 +12,9 @@ class VideoCallRepository {
 
   VideoCallRepository(this.apiService);
 
-  Future<MeetingModel> createMeeting(String meetingName, {String userId = '', String userName = ''}) async {
+  Future<MeetingModel> createMeeting(String meetingName, {String userId = '', String userName = '', String connectionId = ''}) async {
     try {
-      return await apiService.createMeeting(meetingName, userId: userId, userName: userName);
+      return await apiService.createMeeting(meetingName, userId: userId, userName: userName, connectionId: connectionId);
     } on ServerException catch (e) {
       throw ServerFailure(e.message, statusCode: e.statusCode);
     } catch (e) {

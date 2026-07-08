@@ -206,7 +206,7 @@ class WebrtcSfuService {
         consumerCallback: (Consumer consumer, [dynamic accept]) async {
           _consumers[consumer.producerId] = consumer;
 
-          final pId = consumer.appData['participantId']?.toString() ?? 'remote-${consumer.producerId}';
+          final pId = (consumer.appData['participantId']?.toString() ?? 'remote-${consumer.producerId}').toLowerCase();
           
           MediaStream stream;
           if (_remoteStreams.containsKey(pId)) {
@@ -269,7 +269,12 @@ class WebrtcSfuService {
         final producers = await apiService.getProducers(meetingId);
         for (var producer in producers) {
           if (producer.participantId.toLowerCase() != participantId.toLowerCase()) {
-            await consumeRemoteProducer(meetingId, participantId, producer.producerId);
+            await consumeRemoteProducer(
+              meetingId,
+              participantId,
+              producer.producerId,
+              remoteParticipantId: producer.participantId,
+            );
           }
         }
       } catch (e) {
@@ -280,7 +285,12 @@ class WebrtcSfuService {
     }
   }
 
-  Future<void> consumeRemoteProducer(String meetingId, String localParticipantId, String producerId) async {
+  Future<void> consumeRemoteProducer(
+    String meetingId,
+    String localParticipantId,
+    String producerId, {
+    String? remoteParticipantId,
+  }) async {
     try {
       final consumerData = await apiService.sfuConsume(
         meetingId,
@@ -289,13 +299,24 @@ class WebrtcSfuService {
         _mediasoupDevice!.rtpCapabilities.toMap(),
       );
 
+      final String actualPeerId = remoteParticipantId ??
+          consumerData['appData']?['participantId']?.toString() ??
+          producerId;
+
+      final Map<String, dynamic> mergedAppData = {
+        'participantId': actualPeerId,
+        ...Map<String, dynamic>.from(consumerData['appData'] ?? {}),
+      };
+
       _recvTransport!.consume(
         id: consumerData['id'],
         producerId: consumerData['producerId'],
-        peerId: consumerData['appData']?['participantId']?.toString() ?? producerId,
-        kind: consumerData['kind'] == 'audio' ? RTCRtpMediaType.RTCRtpMediaTypeAudio : RTCRtpMediaType.RTCRtpMediaTypeVideo,
+        peerId: actualPeerId,
+        kind: consumerData['kind'] == 'audio'
+            ? RTCRtpMediaType.RTCRtpMediaTypeAudio
+            : RTCRtpMediaType.RTCRtpMediaTypeVideo,
         rtpParameters: RtpParameters.fromMap(consumerData['rtpParameters']),
-        appData: Map<String, dynamic>.from(consumerData['appData'] ?? {}),
+        appData: mergedAppData,
       );
     } catch (e) {
       debugPrint('WebrtcSfuService: Failed to consume remote producer $producerId: $e');
@@ -309,7 +330,7 @@ class WebrtcSfuService {
   Future<void> closeConsumer(String producerId) async {
     final consumer = _consumers.remove(producerId);
     if (consumer != null) {
-      final pId = consumer.appData['participantId']?.toString() ?? '';
+      final pId = (consumer.appData['participantId']?.toString() ?? '').toLowerCase();
       await consumer.close();
       if (pId.isNotEmpty && _remoteStreams.containsKey(pId)) {
         final stream = _remoteStreams[pId]!;

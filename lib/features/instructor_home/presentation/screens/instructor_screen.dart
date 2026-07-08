@@ -18,32 +18,18 @@ class InstructorScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MultiBlocProvider(
-      providers: [
-        BlocProvider<InstructorBloc>(
-          create: (_) => GetIt.I<InstructorBloc>()..add(const LoadInstructorProfileEvent()),
-        ),
-        BlocProvider<MeetingBloc>(
-          create: (_) => GetIt.I<MeetingBloc>()..add(const LoadMeetingsEvent()),
-        ),
-        // VideoCallCubit is provided here so the BlocListener below can
-        // react to VideoCallJoined and navigate directly to the Meeting Room,
-        // bypassing the Lobby entirely for the instructor.
-        BlocProvider<VideoCallCubit>(
-          create: (_) => GetIt.I<VideoCallCubit>(),
-        ),
-      ],
+    return BlocProvider<MeetingBloc>(
+      create: (_) => GetIt.I<MeetingBloc>()..add(const LoadMeetingsEvent()),
       child: BlocListener<VideoCallCubit, VideoCallState>(
         listener: (context, state) {
           if (state is VideoCallJoined) {
-            debugPrint('[Meeting] Navigating with meetingId=${state.meetingId}');
+            debugPrint(
+              '[Meeting] Navigating with meetingId=${state.meetingId}',
+            );
             Navigator.pushNamed(
               context,
               AppRoutes.meetingRoom,
-              arguments: {
-                'meetingId': state.meetingId,
-                'cubit': context.read<VideoCallCubit>(),
-              },
+              arguments: {'meetingId': state.meetingId},
             );
           } else if (state is VideoCallError) {
             ScaffoldMessenger.of(context).showSnackBar(
@@ -62,7 +48,10 @@ class InstructorScreen extends StatelessWidget {
             shadowColor: const Color.fromARGB(255, 94, 92, 95),
             title: Row(
               children: [
-                const ImageIcon(AssetImage('assets/images/platform.png'), size: 65),
+                const ImageIcon(
+                  AssetImage('assets/images/platform.png'),
+                  size: 65,
+                ),
                 const SizedBox(width: 8),
                 RichText(
                   text: const TextSpan(
@@ -83,7 +72,10 @@ class InstructorScreen extends StatelessWidget {
             ),
             actions: [
               IconButton(
-                icon: const Icon(Icons.settings_outlined, color: Color(0xFF163D69)),
+                icon: const Icon(
+                  Icons.settings_outlined,
+                  color: Color(0xFF163D69),
+                ),
                 onPressed: () {
                   Navigator.pushNamed(context, AppRoutes.settings);
                 },
@@ -95,9 +87,12 @@ class InstructorScreen extends StatelessWidget {
               // ── Main dashboard content ──────────────────────────────────
               BlocBuilder<InstructorBloc, InstructorState>(
                 builder: (context, instructorState) {
-                  if (instructorState is InstructorInitial || instructorState is InstructorLoading) {
+                  if (instructorState is InstructorInitial ||
+                      instructorState is InstructorLoading) {
                     return const Center(
-                      child: CircularProgressIndicator(color: Color(0xFF163D69)),
+                      child: CircularProgressIndicator(
+                        color: Color(0xFF163D69),
+                      ),
                     );
                   }
 
@@ -126,11 +121,13 @@ class InstructorScreen extends StatelessWidget {
                             ElevatedButton(
                               onPressed: () {
                                 context.read<InstructorBloc>().add(
-                                      const LoadInstructorProfileEvent(forceRefresh: true),
-                                    );
+                                  const LoadInstructorProfileEvent(
+                                    forceRefresh: true,
+                                  ),
+                                );
                                 context.read<MeetingBloc>().add(
-                                      const LoadMeetingsEvent(forceRefresh: true),
-                                    );
+                                  const LoadMeetingsEvent(forceRefresh: true),
+                                );
                               },
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: const Color(0xFF163D69),
@@ -149,9 +146,12 @@ class InstructorScreen extends StatelessWidget {
                   if (instructorState is InstructorLoaded) {
                     return BlocBuilder<MeetingBloc, MeetingState>(
                       builder: (context, meetingState) {
-                        if (meetingState is MeetingInitial || meetingState is MeetingLoading) {
+                        if (meetingState is MeetingInitial ||
+                            meetingState is MeetingLoading) {
                           return const Center(
-                            child: CircularProgressIndicator(color: Color(0xFF163D69)),
+                            child: CircularProgressIndicator(
+                              color: Color(0xFF163D69),
+                            ),
                           );
                         }
 
@@ -180,8 +180,10 @@ class InstructorScreen extends StatelessWidget {
                                   ElevatedButton(
                                     onPressed: () {
                                       context.read<MeetingBloc>().add(
-                                            const LoadMeetingsEvent(forceRefresh: true),
-                                          );
+                                        const LoadMeetingsEvent(
+                                          forceRefresh: true,
+                                        ),
+                                      );
                                     },
                                     style: ElevatedButton.styleFrom(
                                       backgroundColor: const Color(0xFF163D69),
@@ -223,7 +225,9 @@ class InstructorScreen extends StatelessWidget {
                     return Container(
                       color: Colors.black.withOpacity(0.3),
                       child: const Center(
-                        child: CircularProgressIndicator(color: Color(0xFF163D69)),
+                        child: CircularProgressIndicator(
+                          color: Color(0xFF163D69),
+                        ),
                       ),
                     );
                   }
@@ -255,9 +259,20 @@ class InstructorScreen extends StatelessWidget {
             // Welcome Header
             Row(
               children: [
-                const CircleAvatar(
-                  radius: 30,
-                  backgroundImage: AssetImage('assets/images/john.jpg'),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFDAF3FF),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Text(
+                    'Instructor',
+                    style: TextStyle(
+                      color: Color(0xFF163D69),
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -357,34 +372,74 @@ class InstructorScreen extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 16),
-                  // Schedule Meeting button
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton.icon(
-                      onPressed: () async {
-                        await Navigator.pushNamed(
-                          context,
-                          AppRoutes.scheduleMeeting,
-                        );
-                        // Refresh dashboard after returning from schedule screen
-                        if (context.mounted) {
-                          context.read<MeetingBloc>().add(
-                                const LoadMeetingsEvent(forceRefresh: true),
-                              );
-                        }
-                      },
-                      icon: const Icon(Icons.calendar_month_outlined,
-                          color: Colors.white, size: 18),
-                      label: const Text(
-                        'Schedule Meeting',
-                        style: TextStyle(color: Colors.white, fontSize: 13),
-                      ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF163D69),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
+                  // Classroom Meetings Card
+                  GestureDetector(
+                    onTap: () {
+                      Navigator.pushNamed(context, AppRoutes.meetingsScreen);
+                    },
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFF163D69), Color(0xFF1D548C)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
                         ),
-                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFF163D69).withOpacity(0.3),
+                            blurRadius: 8,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.2),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.video_call_rounded,
+                              color: Colors.white,
+                              size: 24,
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Classroom Meetings',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white,
+                                    fontFamily: 'Poppins',
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  'Host live lectures or join online classes instantly.',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: Colors.white.withOpacity(0.85),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const Icon(
+                            Icons.arrow_forward_ios_rounded,
+                            color: Colors.white,
+                            size: 16,
+                          ),
+                        ],
                       ),
                     ),
                   ),
@@ -413,7 +468,11 @@ class InstructorScreen extends StatelessWidget {
                 ),
                 child: Column(
                   children: [
-                    Icon(Icons.event_busy, size: 48, color: Colors.grey.shade400),
+                    Icon(
+                      Icons.event_busy,
+                      size: 48,
+                      color: Colors.grey.shade400,
+                    ),
                     const SizedBox(height: 12),
                     Text(
                       'No upcoming meetings',
@@ -435,14 +494,17 @@ class InstructorScreen extends StatelessWidget {
               )
             else
               // Pass instructorName so each card can use the real name when joining
-              ...state.meetings.map((meeting) => Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: _buildUpcomingMeetingCard(
-                      context,
-                      meeting,
-                      state.instructorName,
-                    ),
-                  )),
+              ...state.meetings.map(
+                (meeting) => Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: _buildUpcomingMeetingCard(
+                    context,
+                    meeting,
+                    state.instructorName,
+                    profile.email,
+                  ),
+                ),
+              ),
             const SizedBox(height: 24),
           ],
         ),
@@ -512,6 +574,7 @@ class InstructorScreen extends StatelessWidget {
     BuildContext context,
     MeetingModel meeting,
     String instructorName,
+    String instructorEmail,
   ) {
     return Container(
       width: double.infinity,
@@ -567,9 +630,15 @@ class InstructorScreen extends StatelessWidget {
                 child: OutlinedButton.icon(
                   onPressed: null, // Disabled
                   icon: const Icon(Icons.upload_file, size: 14),
-                  label: const Text('Upload Pdf', style: TextStyle(fontSize: 11)),
+                  label: const Text(
+                    'Upload Pdf',
+                    style: TextStyle(fontSize: 11),
+                  ),
                   style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
                     side: BorderSide(color: Colors.grey.shade300),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(6),
@@ -608,7 +677,11 @@ class InstructorScreen extends StatelessWidget {
           // Time / Duration / Date row
           Row(
             children: [
-              Icon(Icons.access_time, size: 14, color: Colors.black.withOpacity(0.5)),
+              Icon(
+                Icons.access_time,
+                size: 14,
+                color: Colors.black.withOpacity(0.5),
+              ),
               const SizedBox(width: 4),
               Text(
                 '${meeting.time ?? '--:--'}  (${meeting.duration ?? 'N/A'})',
@@ -618,7 +691,11 @@ class InstructorScreen extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 16),
-              Icon(Icons.calendar_today, size: 14, color: Colors.black.withOpacity(0.5)),
+              Icon(
+                Icons.calendar_today,
+                size: 14,
+                color: Colors.black.withOpacity(0.5),
+              ),
               const SizedBox(width: 4),
               Text(
                 meeting.date ?? meeting.createdAt?.split('T').first ?? '',
@@ -670,24 +747,20 @@ class InstructorScreen extends StatelessWidget {
                     return;
                   }
 
-                  final name = instructorName.isNotEmpty
-                      ? instructorName
-                      : 'Instructor';
+                  //final displayName = instructorName;
+                  final email = instructorEmail;
 
-                  debugPrint(
-                    '[Meeting] Joining as instructor: '
-                    'name=$name, meetingId=${meeting.id}',
-                  );
-
-                  // Trigger join — the BlocListener in build() detects
-                  // VideoCallJoined and navigates to AppRoutes.meetingRoom.
                   context.read<VideoCallCubit>().joinMeeting(
-                        meeting.id,
-                        name,
-                        isInstructor: true,
-                      );
+                    meeting.id,
+                    email,
+                    isInstructor: true,
+                  );
                 },
-                icon: const Icon(Icons.play_arrow, size: 16, color: Colors.white),
+                icon: const Icon(
+                  Icons.play_arrow,
+                  size: 16,
+                  color: Colors.white,
+                ),
                 label: const Text(
                   'Start Meeting',
                   style: TextStyle(fontSize: 11, color: Colors.white),
@@ -710,14 +783,18 @@ class InstructorScreen extends StatelessWidget {
                 child: OutlinedButton.icon(
                   onPressed: null, // Disabled
                   icon: const Icon(Icons.copy, size: 14),
-                  label: const Text('Copy Link',
-                      style: TextStyle(fontSize: 11)),
+                  label: const Text(
+                    'Copy Link',
+                    style: TextStyle(fontSize: 11),
+                  ),
                   style: OutlinedButton.styleFrom(
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),
                     ),
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 10, vertical: 8),
+                      horizontal: 10,
+                      vertical: 8,
+                    ),
                     side: BorderSide(color: Colors.grey.shade300),
                   ),
                 ),
@@ -758,7 +835,11 @@ class InstructorScreen extends StatelessWidget {
                       ),
                       side: const BorderSide(color: Colors.redAccent),
                     ),
-                    child: const Icon(Icons.close, size: 16, color: Colors.redAccent),
+                    child: const Icon(
+                      Icons.close,
+                      size: 16,
+                      color: Colors.redAccent,
+                    ),
                   ),
                 ),
               ),

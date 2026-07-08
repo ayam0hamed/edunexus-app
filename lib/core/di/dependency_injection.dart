@@ -111,7 +111,7 @@ Future<void> initDI() async {
   sl.registerLazySingleton<GetInstructorProfileUseCase>(
     () => GetInstructorProfileUseCase(sl()),
   );
-  sl.registerFactory<InstructorBloc>(
+  sl.registerLazySingleton<InstructorBloc>(
     () => InstructorBloc(
       getInstructorProfileUseCase: sl(),
       authRepository: sl(),
@@ -143,7 +143,7 @@ Future<void> initDI() async {
     () => VideoCallRepository(sl()),
   );
   
-  sl.registerFactory<VideoCallCubit>(
+  sl.registerLazySingleton<VideoCallCubit>(
     () => VideoCallCubit(
       repository: sl(),
       hubService: sl(),

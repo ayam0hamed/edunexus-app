@@ -73,6 +73,7 @@ class MediaCubit extends Cubit<MediaState> {
               sfuService.currentMeetingId ?? '',
               localId,
               payload.producerId,
+              remoteParticipantId: payload.participantId,
             );
           } catch (e) {
             debugPrint('MediaCubit: consumeRemoteProducer failed: $e');
